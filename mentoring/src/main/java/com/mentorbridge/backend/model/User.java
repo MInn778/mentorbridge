@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -19,22 +20,35 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "user_id")
+    private Integer id;
 
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "user_name", nullable = false)
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "user_role", nullable = false)
     private Role role;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "join_date", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "is_suspended", nullable = false)
+    @Builder.Default
+    private Boolean isSuspended = false;
+
+    @Column(name = "is_mentor_verified", nullable = false)
+    @Builder.Default
+    private Boolean isMentorVerified = false;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

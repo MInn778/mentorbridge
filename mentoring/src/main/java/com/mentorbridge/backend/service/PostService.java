@@ -1,0 +1,157 @@
+package com.mentorbridge.backend.service;
+
+import com.mentorbridge.backend.dto.PostDto;
+import com.mentorbridge.backend.model.Post;
+import com.mentorbridge.backend.model.PostStatus;
+import com.mentorbridge.backend.model.PostTag;
+import com.mentorbridge.backend.model.User;
+import com.mentorbridge.backend.repository.PostRepository;
+import com.mentorbridge.backend.repository.PostTagRepository;
+import com.mentorbridge.backend.repository.StudyGroupRepository;
+import com.mentorbridge.backend.repository.StudyMemberRepository;
+import com.mentorbridge.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class PostService {
+
+    private final PostRepository postRepository;
+    private final PostTagRepository postTagRepository;
+    private final UserRepository userRepository;
+    private final StudyGroupRepository studyGroupRepository;
+    private final StudyMemberRepository studyMemberRepository;
+
+    @Transactional(readOnly = true)
+    public List<PostDto> getAllPosts() {
+        return postRepository.findByIsDeletedFalse().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PostDto getPost(Integer postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        if (post.getIsDeleted()) {
+            throw new RuntimeException("Post is deleted");
+        }
+        return convertToDto(post);
+    }
+
+    @Transactional
+    public PostDto createPost(PostDto.Request request, String email) {
+        User author = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Post post = Post.builder()
+                .author(author)
+                .boardType(request.getBoardType())
+                .title(request.getTitle())
+                .content(request.getContent())
+                .status(request.getStatus() != null ? request.getStatus() : PostStatus.RECRUITING)
+                .build();
+
+        Post savedPost = postRepository.save(post);
+
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            List<PostTag> tags = request.getTags().stream()
+                    .map(tagName -> PostTag.builder().post(savedPost).tagName(tagName).build())
+                    .collect(Collectors.toList());
+            postTagRepository.saveAll(tags);
+        }
+
+        return convertToDto(savedPost);
+    }
+
+    @Transactional
+    public PostDto updatePost(Integer postId, PostDto.Request request, String email) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (post.getIsDeleted()) {
+            throw new RuntimeException("Post is deleted");
+        }
+        
+        User author = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        if (!post.getAuthor().getId().equals(author.getId())) {
+            throw new RuntimeException("Not authorized to update this post");
+        }
+        
+        post.setBoardType(request.getBoardType());
+        post.setTitle(request.getTitle());
+        post.setContent(request.getContent());
+        if (request.getStatus() != null) {
+            post.setStatus(request.getStatus());
+        }
+        
+        Post savedPost = postRepository.save(post);
+        
+        // Update tags
+        postTagRepository.deleteAll(postTagRepository.findByPostBoardId(savedPost.getBoardId()));
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            List<PostTag> tags = request.getTags().stream()
+                    .map(tagName -> PostTag.builder().post(savedPost).tagName(tagName).build())
+                    .collect(Collectors.toList());
+            postTagRepository.saveAll(tags);
+        }
+        
+        return convertToDto(savedPost);
+    }
+
+    @Transactional
+    public void deletePost(Integer postId, String email) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (post.getIsDeleted()) {
+            throw new RuntimeException("Post already deleted");
+        }
+        
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        if (!post.getAuthor().getId().equals(user.getId())) {
+            throw new RuntimeException("Not authorized to delete this post");
+        }
+        
+        post.setIsDeleted(true);
+        post.setDeletedBy(user);
+        post.setDeletedAt(LocalDateTime.now());
+        postRepository.save(post);
+    }
+
+    private PostDto convertToDto(Post post) {
+        List<String> tags = postTagRepository.findByPostBoardId(post.getBoardId())
+                .stream().map(PostTag::getTagName).collect(Collectors.toList());
+
+        List<String> participantNames = new ArrayList<>();
+        studyGroupRepository.findByPostBoardId(post.getBoardId()).ifPresent(group -> {
+            participantNames.addAll(studyMemberRepository.findByStudyGroupGroupId(group.getGroupId())
+                    .stream().map(m -> m.getUser().getName()).collect(Collectors.toList()));
+        });
+
+        return PostDto.builder()
+                .boardId(post.getBoardId())
+                .authorId(post.getAuthor().getId())
+                .authorName(post.getAuthor().getName())
+                .boardType(post.getBoardType())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .viewCount(post.getViewCount())
+                .status(post.getStatus())
+                .tags(tags)
+                .participantNames(participantNames)
+                .createdAt(post.getCreatedAt())
+                .build();
+    }
+}

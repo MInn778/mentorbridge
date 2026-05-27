@@ -22,6 +22,8 @@ export interface Post {
   content: string;
   author: string;
   type: 'study' | 'community' | 'contest';
+  status?: 'RECRUITING' | 'COMPLETED';
+  participantNames?: string[];
   link?: string;
   createdAt: string;
 }

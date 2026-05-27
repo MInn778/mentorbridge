@@ -5,6 +5,7 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import AICareer from './pages/AICareer';
 import Community from './pages/Community';
+import WritePost from './pages/WritePost';
 import MentorSystem from './pages/MentorSystem';
 import Recruitment from './pages/Recruitment';
 import Activities from './pages/Activities';
@@ -12,6 +13,8 @@ import Feedback from './pages/Feedback';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import PostDetail from './pages/PostDetail';
+import MessageInbox from './pages/MessageInbox';
 import { AuthProvider } from './contexts/AuthContext';
 
 export default function App() {
@@ -28,11 +31,15 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/ai-career" element={<AICareer />} />
             <Route path="/community" element={<Community />} />
+            <Route path="/community/write" element={<WritePost />} />
             <Route path="/mentors" element={<MentorSystem />} />
             <Route path="/recruitment" element={<Recruitment />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:userId" element={<Profile />} />
+            <Route path="/community/:postId" element={<PostDetail />} />
+            <Route path="/messages" element={<MessageInbox />} />
           </Routes>
         </main>
         
