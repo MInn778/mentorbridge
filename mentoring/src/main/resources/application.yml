@@ -3,9 +3,9 @@ spring:
   application:
     name: mentorbridge-backend
   datasource:
-    url: jdbc:mysql://localhost:3306/mentoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-    username: root
-    password: Abcd123@
+    url: ${DB_URL:jdbc:mysql://localhost:3306/mentoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -39,7 +39,7 @@ spring:
           writetimeout: 5000
 
 jwt:
-  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000} # 24시간 (1일)
 
 server:
