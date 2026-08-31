@@ -2,8 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Target, Users, Briefcase, Trophy, MessageSquare, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 export default function Dashboard() {
+  const { notifications } = useNotifications();
+  
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
@@ -35,22 +38,31 @@ export default function Dashboard() {
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">최근 활동 내역</h2>
-              <button className="text-sm text-blue-600 font-medium hover:underline">전체보기</button>
+              <Link to="/notifications" className="text-sm text-blue-600 font-medium hover:underline">전체보기</Link>
             </div>
             <div className="space-y-4">
-              {[
-                { title: '알고리즘 스터디 모집글에 댓글을 남겼습니다.', time: '2시간 전', type: 'comment' },
-                { title: '김멘토님께 포트폴리오 피드백을 요청했습니다.', time: '5시간 전', type: 'mentoring' },
-                { title: '네이버 신입 공채 공고를 스크랩했습니다.', time: '어제', type: 'scrap' },
-              ].map((activity, i) => (
-                <div key={i} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{activity.title}</p>
-                    <p className="text-xs text-slate-400 mt-1">{activity.time}</p>
+              {notifications.length === 0 ? (
+                <div className="text-center text-sm text-slate-500 py-4">최근 활동이 없습니다.</div>
+              ) : (
+                notifications.slice(0, 5).map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className={cn(
+                      "mt-1.5 h-2 w-2 rounded-full shrink-0",
+                      activity.isRead ? "bg-slate-300" : "bg-blue-500"
+                    )} />
+                    <div className="flex-1">
+                      {activity.link ? (
+                        <Link to={activity.link} className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline block line-clamp-2">
+                          {activity.title}
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-medium text-slate-800 line-clamp-2">{activity.title}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">{new Date(activity.createdAt).toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
         </div>

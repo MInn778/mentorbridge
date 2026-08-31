@@ -93,10 +93,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash      VARCHAR(255)     NOT NULL                   COMMENT '해시된 비밀번호',
     user_name          VARCHAR(50)      NOT NULL                   COMMENT '사용자 이름 또는 닉네임',
     user_role          ENUM(
-                           '일반',
-                           '멘토',
-                           '관리자'
-                       )                NOT NULL DEFAULT '일반'    COMMENT '사용자 역할',
+                           'MENTEE',
+                           'MENTOR',
+                           'ADMIN'
+                       )                NOT NULL DEFAULT 'MENTEE'  COMMENT '사용자 역할',
     is_suspended       BOOLEAN          NOT NULL DEFAULT FALSE      COMMENT '계정 정지 여부',
     is_mentor_verified BOOLEAN          NOT NULL DEFAULT FALSE      COMMENT '멘토 인증 여부',
     join_date          TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '가입 일시',
@@ -160,6 +160,8 @@ CREATE TABLE IF NOT EXISTS mentor_profile (
     user_id           INT              NOT NULL                    COMMENT '사용자 참조 (FK)',
     mentor_intro      TEXT             NULL                        COMMENT '자기소개',
     mentor_career     TEXT             NULL                        COMMENT '경력 사항',
+    -- 🚨 [추가됨] 멘토의 전문 분야를 저장하는 컬럼 (React, UI/UX 등 쉼표로 구분) 🚨
+    specs             VARCHAR(500)     NULL                        COMMENT '전문 분야',
     profile_image_url VARCHAR(500)     NULL                        COMMENT '프로필 이미지 URL',
     rating            FLOAT            NOT NULL DEFAULT 0.0        COMMENT '평균 평점 (0.0 ~ 5.0)',
     review_count      INT              NOT NULL DEFAULT 0          COMMENT '리뷰 수',
@@ -736,3 +738,38 @@ ENGINE = InnoDB
 DEFAULT CHARSET = utf8mb4
 COLLATE = utf8mb4_unicode_ci
 COMMENT = '공지사항 테이블';
+
+-- ============================================================
+-- 23. 시스템 관리자 권한 부여 방법
+-- 개발 및 테스트 단계에서 본인의 계정을 관리자(ADMIN)로 변경하는 쿼리입니다.
+-- ============================================================
+-- 아래 SQL 문을 복사하여 MySQL DB 클라이언트에서 실행하세요.
+-- "가입하신이메일@도메인.com" 부분을 실제 이메일로 변경해야 합니다.
+-- 
+-- UPDATE users SET user_role = 'ADMIN' WHERE email = '가입하신이메일@도메인.com';
+-- ============================================================
+
+-- ============================================================
+-- 24. Notification (실시간 알림)
+-- 사용자에게 전달되는 실시간 알림 이력을 저장합니다. (SSE 활용)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notification (
+    notification_id    INT              NOT NULL AUTO_INCREMENT,
+    user_id            INT              NOT NULL                    COMMENT '알림 수신자 참조 (FK)',
+    type               ENUM('COMMENT', 'MENTORING', 'SCRAP', 'APPLICATION_STATUS', 'MESSAGE') NOT NULL COMMENT '알림 종류',
+    title              VARCHAR(255)     NOT NULL                    COMMENT '알림 내용/제목',
+    link               VARCHAR(500)     NULL                        COMMENT '클릭 시 이동할 링크 URL',
+    is_read            BOOLEAN          NOT NULL DEFAULT FALSE      COMMENT '읽음 여부',
+    created_at         TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '알림 생성 일시',
+
+    PRIMARY KEY (notification_id),
+    CONSTRAINT fk_notification_user
+        FOREIGN KEY (user_id)
+        REFERENCES users (user_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+)
+ENGINE = InnoDB
+DEFAULT CHARSET = utf8mb4
+COLLATE = utf8mb4_unicode_ci
+COMMENT = '실시간 알림(SSE) 기록 테이블';
