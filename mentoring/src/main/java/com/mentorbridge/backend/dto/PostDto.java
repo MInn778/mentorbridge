@@ -25,8 +25,10 @@ public class PostDto {
     private PostStatus status;
     private List<String> tags;
     private List<String> participantNames;
+    private Integer maxMembers;
+    private long commentCount;
     private LocalDateTime createdAt;
-    
+
     // For creating/updating
     public static class Request {
         private BoardType boardType;
@@ -34,7 +36,8 @@ public class PostDto {
         private String content;
         private PostStatus status;
         private List<String> tags;
-        
+        private Integer maxMembers;
+
         // getters and setters
         public BoardType getBoardType() { return boardType; }
         public void setBoardType(BoardType boardType) { this.boardType = boardType; }
@@ -46,5 +49,7 @@ public class PostDto {
         public void setStatus(PostStatus status) { this.status = status; }
         public List<String> getTags() { return tags; }
         public void setTags(List<String> tags) { this.tags = tags; }
+        public Integer getMaxMembers() { return maxMembers; }
+        public void setMaxMembers(Integer maxMembers) { this.maxMembers = maxMembers; }
     }
 }

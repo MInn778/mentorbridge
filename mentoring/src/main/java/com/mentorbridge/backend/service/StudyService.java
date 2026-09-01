@@ -33,6 +33,16 @@ public class StudyService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<StudyGroupDto> getMyStudyGroups(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return studyMemberRepository.findByUserId(user.getId()).stream()
+                .map(StudyMember::getStudyGroup)
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public StudyGroupDto createStudyGroup(StudyGroupDto.Request request, Integer userId) {
         Post post = postRepository.findById(request.getBoardId())

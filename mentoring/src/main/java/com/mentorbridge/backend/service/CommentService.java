@@ -2,6 +2,7 @@ package com.mentorbridge.backend.service;
 
 import com.mentorbridge.backend.dto.CommentDto;
 import com.mentorbridge.backend.model.Comment;
+import com.mentorbridge.backend.model.NotificationType;
 import com.mentorbridge.backend.model.Post;
 import com.mentorbridge.backend.model.User;
 import com.mentorbridge.backend.repository.CommentRepository;
@@ -21,6 +22,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<CommentDto> getCommentsByPostId(Integer boardId) {
@@ -43,6 +45,16 @@ public class CommentService {
                 .build();
 
         Comment savedComment = commentRepository.save(comment);
+
+        User postAuthor = post.getAuthor();
+        if (!postAuthor.getId().equals(author.getId())) {
+            notificationService.sendNotification(
+                    postAuthor.getId(),
+                    NotificationType.COMMENT,
+                    author.getName() + "님이 게시글에 댓글을 남겼습니다.",
+                    "/community/" + post.getBoardId());
+        }
+
         return convertToDto(savedComment);
     }
 

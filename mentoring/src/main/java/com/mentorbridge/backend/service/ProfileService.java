@@ -76,6 +76,7 @@ public class ProfileService {
                 .profileId(profile.getId())
                 .userId(profile.getUser() != null ? profile.getUser().getId() : null)
                 .userName(profile.getUser() != null ? profile.getUser().getName() : null)
+                .role(profile.getUser() != null ? profile.getUser().getRole() : null)
                 .status(profile.getStatus())
                 .major(profile.getMajor())
                 .skills(profile.getSkills())

@@ -19,6 +19,7 @@ interface UserProfile {
   profileId: number;
   userId: number;
   userName: string;
+  role: 'MENTOR' | 'MENTEE' | 'ADMIN' | null;
   status: '학생' | '취준생' | '재직자' | null;
   major: string | null;
   skills: string | null;
@@ -110,7 +111,18 @@ export default function Profile() {
                 </div>
               </div>
               <div className="mb-2">
-                <h1 className="text-2xl font-bold text-slate-900">{profile.userName || '이름 없음'}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-slate-900">{profile.userName || '이름 없음'}</h1>
+                  {profile.role && (
+                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${
+                      profile.role === 'MENTOR' ? 'bg-orange-100 text-orange-600' :
+                      profile.role === 'ADMIN' ? 'bg-slate-800 text-white' :
+                      'bg-blue-100 text-blue-600'
+                    }`}>
+                      {profile.role === 'MENTOR' ? '멘토' : profile.role === 'ADMIN' ? '관리자' : '멘티'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-slate-500 font-medium">사용자 ID: {profile.userId}</p>
               </div>
             </div>

@@ -55,7 +55,8 @@ export default function MessageInbox() {
         alert(action === 'accept' ? '수락되었습니다.' : '거절되었습니다.');
         fetchMessages();
       } else {
-        alert('처리 중 오류가 발생했습니다.');
+        const data = await res.json().catch(() => null);
+        alert(data?.message || '처리 중 오류가 발생했습니다.');
       }
     } catch (err) {
       console.error(err);

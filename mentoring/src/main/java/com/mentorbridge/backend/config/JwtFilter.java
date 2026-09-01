@@ -30,10 +30,19 @@ public class JwtFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwt = authHeader.substring(7);
-            username = jwtUtil.extractUsername(jwt);
         } else if (request.getParameter("token") != null) {
             jwt = request.getParameter("token");
-            username = jwtUtil.extractUsername(jwt);
+        }
+
+        if (jwt != null) {
+            try {
+                username = jwtUtil.extractUsername(jwt);
+            } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+                // 만료/위조/형식이 잘못된 토큰 — 인증 없이 통과시켜서
+                // 이후 SecurityConfig의 401 처리(AuthenticationEntryPoint)로 넘긴다.
+                // (여기서 그냥 던지면 필터 체인에서 처리 안 된 예외로 500이 나버림)
+                username = null;
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {

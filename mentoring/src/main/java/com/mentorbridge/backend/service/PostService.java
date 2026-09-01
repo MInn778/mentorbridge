@@ -1,10 +1,15 @@
 package com.mentorbridge.backend.service;
 
 import com.mentorbridge.backend.dto.PostDto;
+import com.mentorbridge.backend.model.BoardType;
 import com.mentorbridge.backend.model.Post;
 import com.mentorbridge.backend.model.PostStatus;
 import com.mentorbridge.backend.model.PostTag;
+import com.mentorbridge.backend.model.StudyGroup;
+import com.mentorbridge.backend.model.StudyGroupStatus;
+import com.mentorbridge.backend.model.StudyMember;
 import com.mentorbridge.backend.model.User;
+import com.mentorbridge.backend.repository.CommentRepository;
 import com.mentorbridge.backend.repository.PostRepository;
 import com.mentorbridge.backend.repository.PostTagRepository;
 import com.mentorbridge.backend.repository.StudyGroupRepository;
@@ -28,6 +33,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final StudyGroupRepository studyGroupRepository;
     private final StudyMemberRepository studyMemberRepository;
+    private final CommentRepository commentRepository;
 
     @Transactional(readOnly = true)
     public List<PostDto> getAllPosts() {
@@ -68,6 +74,20 @@ public class PostService {
             postTagRepository.saveAll(tags);
         }
 
+        // 모집글(자유 게시판 제외)은 작성자를 방장 겸 참여자로 바로 등록해둔다.
+        if (savedPost.getBoardType() != BoardType.자유) {
+            int maxMembers = request.getMaxMembers() != null && request.getMaxMembers() > 0 ? request.getMaxMembers() : 10;
+            StudyGroup group = StudyGroup.builder()
+                    .post(savedPost)
+                    .leader(author)
+                    .groupName(savedPost.getTitle())
+                    .maxMembers(maxMembers)
+                    .status(StudyGroupStatus.모집중)
+                    .build();
+            StudyGroup savedGroup = studyGroupRepository.save(group);
+            studyMemberRepository.save(StudyMember.builder().studyGroup(savedGroup).user(author).build());
+        }
+
         return convertToDto(savedPost);
     }
 
@@ -95,7 +115,7 @@ public class PostService {
         }
         
         Post savedPost = postRepository.save(post);
-        
+
         // Update tags
         postTagRepository.deleteAll(postTagRepository.findByPostBoardId(savedPost.getBoardId()));
         if (request.getTags() != null && !request.getTags().isEmpty()) {
@@ -104,7 +124,35 @@ public class PostService {
                     .collect(Collectors.toList());
             postTagRepository.saveAll(tags);
         }
-        
+
+        if (request.getMaxMembers() != null && request.getMaxMembers() > 0) {
+            studyGroupRepository.findByPostBoardId(savedPost.getBoardId()).ifPresent(group -> {
+                group.setMaxMembers(request.getMaxMembers());
+                studyGroupRepository.save(group);
+            });
+        }
+
+        return convertToDto(savedPost);
+    }
+
+    @Transactional
+    public PostDto updateStatus(Integer postId, PostStatus status, String email) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        if (post.getIsDeleted()) {
+            throw new RuntimeException("Post is deleted");
+        }
+
+        User author = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!post.getAuthor().getId().equals(author.getId())) {
+            throw new RuntimeException("Not authorized to update this post");
+        }
+
+        post.setStatus(status);
+        Post savedPost = postRepository.save(post);
         return convertToDto(savedPost);
     }
 
@@ -130,15 +178,37 @@ public class PostService {
         postRepository.save(post);
     }
 
+    @Transactional
+    public void adminDeletePost(Integer postId, String adminEmail) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        if (post.getIsDeleted()) {
+            throw new RuntimeException("Post already deleted");
+        }
+
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        post.setIsDeleted(true);
+        post.setDeletedBy(admin);
+        post.setDeletedAt(LocalDateTime.now());
+        postRepository.save(post);
+    }
+
     private PostDto convertToDto(Post post) {
         List<String> tags = postTagRepository.findByPostBoardId(post.getBoardId())
                 .stream().map(PostTag::getTagName).collect(Collectors.toList());
 
         List<String> participantNames = new ArrayList<>();
+        Integer[] maxMembersHolder = new Integer[1];
         studyGroupRepository.findByPostBoardId(post.getBoardId()).ifPresent(group -> {
             participantNames.addAll(studyMemberRepository.findByStudyGroupGroupId(group.getGroupId())
                     .stream().map(m -> m.getUser().getName()).collect(Collectors.toList()));
+            maxMembersHolder[0] = group.getMaxMembers();
         });
+
+        long commentCount = commentRepository.countByPostBoardIdAndIsDeletedFalse(post.getBoardId());
 
         return PostDto.builder()
                 .boardId(post.getBoardId())
@@ -151,6 +221,8 @@ public class PostService {
                 .status(post.getStatus())
                 .tags(tags)
                 .participantNames(participantNames)
+                .maxMembers(maxMembersHolder[0])
+                .commentCount(commentCount)
                 .createdAt(post.getCreatedAt())
                 .build();
     }

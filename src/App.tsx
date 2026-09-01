@@ -16,6 +16,8 @@ import Signup from './pages/Signup';
 import PostDetail from './pages/PostDetail';
 import MessageInbox from './pages/MessageInbox';
 import Notifications from './pages/Notifications';
+import OAuthCallback from './pages/OAuthCallback';
+import Admin from './pages/Admin';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
@@ -44,6 +46,8 @@ export default function App() {
               <Route path="/community/:postId" element={<PostDetail />} />
               <Route path="/messages" element={<MessageInbox />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/admin" element={<Admin />} />
             </Routes>
           </main>
           

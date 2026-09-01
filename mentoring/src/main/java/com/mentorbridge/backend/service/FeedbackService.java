@@ -50,6 +50,15 @@ public class FeedbackService {
     }
 
     @Transactional(readOnly = true)
+    public List<FeedbackPostDto> getMyFeedbackPosts(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return feedbackPostRepository.findByAuthorIdOrderByCreatedAtDesc(user.getId()).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public FeedbackPostDto getFeedbackPost(Integer id) {
         FeedbackPost post = feedbackPostRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Feedback Post not found"));
@@ -76,7 +85,7 @@ public class FeedbackService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
                 
-        MentorProfile mentor = mentorProfileRepository.findByUser(user)
+        MentorProfile mentor = mentorProfileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new RuntimeException("Only mentors can add feedback"));
 
         FeedbackPost post = feedbackPostRepository.findById(postId)

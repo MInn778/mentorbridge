@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, BookOpen, Briefcase, Star, MessageCircle, Plus } from 'lucide-react';
+import { Award, BookOpen, Briefcase, Star, MessageCircle, Plus, UserCog } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MentorProfile {
@@ -16,13 +16,17 @@ interface MentorProfile {
 
 export default function MentorSystem() {
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applyForm, setApplyForm] = useState({ intro: '', career: '', specs: '' });
-  const { token, isAuthenticated } = useAuth();
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({ intro: '', career: '', specs: '' });
+  const { token, user, isAuthenticated } = useAuth();
+
+  const isMentor = user?.role === 'MENTOR';
+  const myProfile = isMentor ? mentors.find(m => m.name === user?.name) : undefined;
 
   const fetchMentors = async () => {
     try {
-      const res = await fetch('/api/mentors');
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch('/api/mentors', { headers });
       if (res.ok) {
         setMentors(await res.json());
       }
@@ -33,31 +37,53 @@ export default function MentorSystem() {
 
   useEffect(() => {
     fetchMentors();
-  }, []);
+  }, [token]);
 
-  const handleApplyMentor = async (e: React.FormEvent) => {
+  const openModal = () => {
+    if (isMentor && myProfile) {
+      setForm({
+        intro: myProfile.mentorIntro || '',
+        career: myProfile.mentorCareer || '',
+        specs: (myProfile.specs || []).join(', '),
+      });
+    } else {
+      setForm({ intro: '', career: '', specs: '' });
+    }
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthenticated) return alert('로그인이 필요합니다.');
+
+    const specsArray = form.specs.split(',').map(s => s.trim()).filter(Boolean);
+
     try {
-      const res = await fetch('/api/mentors/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          selfIntro: applyForm.intro,
-          career: applyForm.career,
-          specs: applyForm.specs.split(',').map(s => s.trim()),
-          proofUrl: null
-        })
-      });
-      if (res.ok) {
-        alert('멘토 신청이 승인되었습니다!');
-        setShowApplyModal(false);
-        fetchMentors();
+      if (isMentor) {
+        const res = await fetch('/api/mentors/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ mentorIntro: form.intro, mentorCareer: form.career, specs: specsArray }),
+        });
+        if (res.ok) {
+          alert('프로필이 수정되었습니다.');
+          setShowModal(false);
+          fetchMentors();
+        } else {
+          alert('수정 중 오류가 발생했습니다.');
+        }
       } else {
-        alert('신청 중 오류가 발생했습니다.');
+        const res = await fetch('/api/mentors/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ selfIntro: form.intro, career: form.career, specs: specsArray, proofUrl: null }),
+        });
+        if (res.ok) {
+          alert('멘토 신청이 접수되었습니다. 관리자 심사 후 승인됩니다.');
+          setShowModal(false);
+        } else {
+          alert('신청 중 오류가 발생했습니다.');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -90,11 +116,12 @@ export default function MentorSystem() {
           <h1 className="text-3xl font-bold text-slate-900">멘토 시스템</h1>
           <p className="text-slate-500 mt-2">검증된 현직자 멘토들에게 직접 배우고 성장하세요.</p>
         </div>
-        <button 
-          onClick={() => setShowApplyModal(true)}
+        <button
+          onClick={openModal}
           className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"
         >
-          <Plus size={16} /> 멘토 등록하기
+          {isMentor ? <UserCog size={16} /> : <Plus size={16} />}
+          {isMentor ? '프로필 소개하기' : '멘토 등록하기'}
         </button>
       </header>
 
@@ -107,20 +134,20 @@ export default function MentorSystem() {
           {mentors.map((mentor) => (
             <div key={mentor.mentorId} className="bg-white overflow-hidden rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row">
               <div className="md:w-72 bg-slate-50 p-8 flex flex-col items-center text-center border-b md:border-b-0 md:border-r border-slate-200">
-                <img 
-                  src={mentor.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.name)}&background=random`} 
-                  alt={mentor.name} 
+                <img
+                  src={mentor.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.name)}&background=random`}
+                  alt={mentor.name}
                   className="w-32 h-32 rounded-full border-4 border-white shadow-lg mb-4 object-cover"
                 />
                 <h3 className="text-xl font-bold text-slate-900">{mentor.name} 멘토</h3>
-                
+
                 <div className="flex items-center gap-1 mt-4 text-orange-500">
                   <Star size={16} fill="currentColor" />
                   <span className="text-sm font-bold">{mentor.rating}</span>
                   <span className="text-xs text-slate-400 font-normal">({mentor.reviewCount})</span>
                 </div>
 
-                <button 
+                <button
                   onClick={() => handleRequestMatch(mentor.mentorId)}
                   className="w-full mt-6 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors"
                 >
@@ -163,59 +190,61 @@ export default function MentorSystem() {
         </div>
       )}
 
-      {/* Apply Mentor Modal */}
-      {showApplyModal && (
+      {/* Apply / Edit Mentor Modal */}
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900">멘토 등록 신청</h2>
-              <p className="text-sm text-slate-500 mt-1">간단한 정보를 입력하고 멘토 활동을 시작해보세요.</p>
+              <h2 className="text-xl font-bold text-slate-900">{isMentor ? '내 프로필 소개' : '멘토 등록 신청'}</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {isMentor ? '멘티들에게 보여질 자기소개와 전문 분야를 수정하세요.' : '간단한 정보를 입력하고 멘토 활동을 시작해보세요.'}
+              </p>
             </div>
-            <form onSubmit={handleApplyMentor} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">자기소개</label>
-                <textarea 
+                <textarea
                   required
-                  value={applyForm.intro}
-                  onChange={e => setApplyForm({...applyForm, intro: e.target.value})}
+                  value={form.intro}
+                  onChange={e => setForm({...form, intro: e.target.value})}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm min-h-[100px]"
                   placeholder="멘티들에게 자신을 어필할 수 있는 소개글을 적어주세요."
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">경력 사항</label>
-                <textarea 
+                <textarea
                   required
-                  value={applyForm.career}
-                  onChange={e => setApplyForm({...applyForm, career: e.target.value})}
+                  value={form.career}
+                  onChange={e => setForm({...form, career: e.target.value})}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm min-h-[80px]"
                   placeholder="예: 현) Google Korea Senior Engineer"
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">전문 분야 (쉼표로 구분)</label>
-                <input 
+                <input
                   type="text"
                   required
-                  value={applyForm.specs}
-                  onChange={e => setApplyForm({...applyForm, specs: e.target.value})}
+                  value={form.specs}
+                  onChange={e => setForm({...form, specs: e.target.value})}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
                   placeholder="예: React, TypeScript, Next.js"
                 />
               </div>
               <div className="pt-4 flex gap-3">
-                <button 
+                <button
                   type="button"
-                  onClick={() => setShowApplyModal(false)}
+                  onClick={() => setShowModal(false)}
                   className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors text-sm"
                 >
                   취소
                 </button>
-                <button 
+                <button
                   type="submit"
                   className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors text-sm"
                 >
-                  신청 완료 (자동 승인)
+                  {isMentor ? '저장하기' : '신청하기'}
                 </button>
               </div>
             </form>

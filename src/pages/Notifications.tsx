@@ -8,23 +8,23 @@ export default function Notifications() {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
 
   const getIcon = (type: string) => {
-    switch (type) {
-      case 'comment': return <MessageSquare size={20} />;
-      case 'scrap': return <Briefcase size={20} />;
-      case 'mentoring': return <FileText size={20} />;
-      case 'application_status': return <CheckCircle size={20} />;
-      case 'message': return <Mail size={20} />;
+    switch (type.toUpperCase()) {
+      case 'COMMENT': return <MessageSquare size={20} />;
+      case 'SCRAP': return <Briefcase size={20} />;
+      case 'MENTORING': return <FileText size={20} />;
+      case 'APPLICATION_STATUS': return <CheckCircle size={20} />;
+      case 'MESSAGE': return <Mail size={20} />;
       default: return <Bell size={20} />;
     }
   };
 
   const getColor = (type: string) => {
-    switch (type) {
-      case 'comment': return 'bg-blue-500';
-      case 'scrap': return 'bg-purple-500';
-      case 'mentoring': return 'bg-orange-500';
-      case 'application_status': return 'bg-green-500';
-      case 'message': return 'bg-indigo-500';
+    switch (type.toUpperCase()) {
+      case 'COMMENT': return 'bg-blue-500';
+      case 'SCRAP': return 'bg-purple-500';
+      case 'MENTORING': return 'bg-orange-500';
+      case 'APPLICATION_STATUS': return 'bg-green-500';
+      case 'MESSAGE': return 'bg-indigo-500';
       default: return 'bg-slate-500';
     }
   };

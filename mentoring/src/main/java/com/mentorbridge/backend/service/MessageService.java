@@ -4,6 +4,7 @@ import com.mentorbridge.backend.dto.MessageCreateDto;
 import com.mentorbridge.backend.dto.MessageDto;
 import com.mentorbridge.backend.model.*;
 import com.mentorbridge.backend.repository.MessageRepository;
+import com.mentorbridge.backend.repository.PostRepository;
 import com.mentorbridge.backend.repository.StudyGroupRepository;
 import com.mentorbridge.backend.repository.StudyMemberRepository;
 import com.mentorbridge.backend.repository.UserRepository;
@@ -20,8 +21,10 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
     private final StudyGroupRepository studyGroupRepository;
     private final StudyMemberRepository studyMemberRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<MessageDto> getInbox(String email) {
@@ -49,6 +52,13 @@ public class MessageService {
                 .build();
 
         Message saved = messageRepository.save(message);
+
+        notificationService.sendNotification(
+                receiver.getId(),
+                NotificationType.MESSAGE,
+                sender.getName() + "님이 쪽지를 보냈습니다.",
+                "/messages");
+
         return mapToDto(saved);
     }
 
@@ -71,15 +81,39 @@ public class MessageService {
         message.setStatus(MessageStatus.ACCEPTED);
         messageRepository.save(message);
 
-        // Add to StudyGroup
-        StudyGroup group = studyGroupRepository.findById(message.getRelatedGroupId())
-                .orElseThrow(() -> new RuntimeException("Study group not found"));
+        // relatedGroupId는 지원할 때 프론트가 post.boardId로 채워서 보낸다.
+        // 게시글 작성만으로는 study_group이 생기지 않으므로, 첫 수락 시점에 그룹을 만들어준다.
+        Post post = postRepository.findById(message.getRelatedGroupId())
+                .orElseThrow(() -> new RuntimeException("Post not found"));
 
-        StudyMember member = StudyMember.builder()
-                .studyGroup(group)
-                .user(message.getSender())
-                .build();
-        studyMemberRepository.save(member);
+        StudyGroup group = studyGroupRepository.findByPostBoardId(post.getBoardId())
+                .orElseGet(() -> {
+                    StudyGroup newGroup = StudyGroup.builder()
+                            .post(post)
+                            .leader(receiver)
+                            .groupName(post.getTitle())
+                            .maxMembers(99)
+                            .status(StudyGroupStatus.모집중)
+                            .build();
+                    StudyGroup savedGroup = studyGroupRepository.save(newGroup);
+                    studyMemberRepository.save(StudyMember.builder().studyGroup(savedGroup).user(receiver).build());
+                    return savedGroup;
+                });
+
+        boolean alreadyMember = studyMemberRepository
+                .findByStudyGroupGroupIdAndUser_Id(group.getGroupId(), message.getSender().getId())
+                .isPresent();
+        if (!alreadyMember) {
+            long currentMembers = studyMemberRepository.countByStudyGroupGroupId(group.getGroupId());
+            if (currentMembers >= group.getMaxMembers()) {
+                throw new RuntimeException("모집 인원이 모두 찼습니다.");
+            }
+            StudyMember member = StudyMember.builder()
+                    .studyGroup(group)
+                    .user(message.getSender())
+                    .build();
+            studyMemberRepository.save(member);
+        }
 
         // Send System Message back
         Message systemMessage = Message.builder()
@@ -90,6 +124,12 @@ public class MessageService {
                 .relatedGroupId(message.getRelatedGroupId())
                 .build();
         messageRepository.save(systemMessage);
+
+        notificationService.sendNotification(
+                message.getSender().getId(),
+                NotificationType.APPLICATION_STATUS,
+                "스터디 참여 신청이 수락되었습니다.",
+                "/messages");
     }
 
     @Transactional
@@ -120,6 +160,12 @@ public class MessageService {
                 .relatedGroupId(message.getRelatedGroupId())
                 .build();
         messageRepository.save(systemMessage);
+
+        notificationService.sendNotification(
+                message.getSender().getId(),
+                NotificationType.APPLICATION_STATUS,
+                "스터디 참여 신청이 거절되었습니다.",
+                "/messages");
     }
 
     private MessageDto mapToDto(Message message) {

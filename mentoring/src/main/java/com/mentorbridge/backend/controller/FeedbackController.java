@@ -29,6 +29,11 @@ public class FeedbackController {
         return ResponseEntity.ok(feedbackService.getAllFeedbackPosts());
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<List<FeedbackPostDto>> getMyFeedbackPosts(Authentication authentication) {
+        return ResponseEntity.ok(feedbackService.getMyFeedbackPosts(authentication.getName()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<FeedbackPostDto> getFeedbackPost(@PathVariable Integer id) {
         return ResponseEntity.ok(feedbackService.getFeedbackPost(id));

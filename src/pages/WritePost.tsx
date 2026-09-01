@@ -16,8 +16,16 @@ export default function WritePost() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [status, setStatus] = useState<'RECRUITING' | 'COMPLETED'>('RECRUITING');
+  const [maxMembers, setMaxMembers] = useState(10);
 
-  const boardTypes = ['스터디모집', '멘토모집', '멘티모집', '프로젝트모집', '자유'];
+  // value는 백엔드 BoardType enum과 그대로 맞춰야 하고, label만 화면에 표시되는 이름
+  const boardTypes = [
+    { value: '스터디모집', label: '스터디모집' },
+    { value: '멘토모집', label: '멘토모집' },
+    { value: '멘티모집', label: '멘티모집' },
+    { value: '프로젝트모집', label: '프로젝트모집' },
+    { value: '자유', label: '기타' },
+  ];
 
   useEffect(() => {
     if (editId && token) {
@@ -33,6 +41,7 @@ export default function WritePost() {
         setContent(data.content);
         setTags(data.tags || []);
         if (data.status) setStatus(data.status);
+        if (data.maxMembers) setMaxMembers(data.maxMembers);
       })
       .catch(err => console.error(err));
     }
@@ -69,7 +78,7 @@ export default function WritePost() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ boardType, title, content, tags, status })
+        body: JSON.stringify({ boardType, title, content, tags, status, maxMembers: boardType === '자유' ? null : maxMembers })
       });
 
       if (response.ok) {
@@ -104,19 +113,19 @@ export default function WritePost() {
         <div className="space-y-3">
           <label className="block text-sm font-bold text-slate-700">게시판 유형</label>
           <div className="flex flex-wrap gap-2">
-            {boardTypes.map(type => (
+            {boardTypes.map(({ value, label }) => (
               <button
-                key={type}
+                key={value}
                 type="button"
-                onClick={() => setBoardType(type)}
+                onClick={() => setBoardType(value)}
                 className={cn(
                   "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border",
-                  boardType === type
+                  boardType === value
                     ? "bg-blue-50 border-blue-200 text-blue-700"
                     : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"
                 )}
               >
-                {type}
+                {label}
               </button>
             ))}
           </div>
@@ -133,6 +142,23 @@ export default function WritePost() {
             className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
           />
         </div>
+
+        {boardType !== '자유' && (
+          <div className="space-y-3">
+            <label className="block text-sm font-bold text-slate-700">모집 인원 수 제한</label>
+            <input
+              type="number"
+              min={1}
+              max={999}
+              required
+              value={maxMembers}
+              onChange={e => setMaxMembers(Math.max(1, Number(e.target.value)))}
+              className="w-full sm:w-48 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
+              placeholder="예: 5"
+            />
+            <p className="text-xs text-slate-400">작성자(방장) 본인도 인원에 포함됩니다.</p>
+          </div>
+        )}
 
         <div className="space-y-3">
           <label className="block text-sm font-bold text-slate-700">모집 상태</label>

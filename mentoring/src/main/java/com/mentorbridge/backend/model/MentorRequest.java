@@ -39,6 +39,9 @@ public class MentorRequest {
     @Column(name = "proof_url", length = 500)
     private String proofUrl;
 
+    @Column(name = "specs", length = 500)
+    private String specs;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default

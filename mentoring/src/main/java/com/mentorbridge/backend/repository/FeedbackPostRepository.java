@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface FeedbackPostRepository extends JpaRepository<FeedbackPost, Integer> {
     List<FeedbackPost> findAllByOrderByCreatedAtDesc();
+    List<FeedbackPost> findByAuthorIdOrderByCreatedAtDesc(Integer authorId);
+    long countByAuthorId(Integer authorId);
 }

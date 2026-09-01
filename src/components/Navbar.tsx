@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User as UserIcon, Bell, LogOut, Settings, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
-const navItems = [
+const roleLabel: Record<string, string> = {
+  MENTOR: '멘토',
+  MENTEE: '멘티',
+  ADMIN: '관리자',
+};
+
+const baseNavItems = [
   { name: '나의 활동', path: '/dashboard' },
   { name: 'AI 진로 추천', path: '/ai-career' },
   { name: '스터디&커뮤니티', path: '/community' },
@@ -19,12 +25,35 @@ export default function Navbar() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
   const { notifications, unreadCount, markAsRead } = useNotifications();
-  
+
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setShowNotifications(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
+        setShowProfileMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const navItems = user?.role === 'ADMIN'
+    ? [...baseNavItems, { name: '관리자', path: '/admin' }]
+    : baseNavItems;
+
   const handleLogout = () => {
     logout();
     setShowProfileMenu(false);
+    navigate('/');
   };
 
   return (
@@ -65,8 +94,8 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 relative">
-            <div className="relative">
-              <button 
+            <div className="relative" ref={notificationsRef}>
+              <button
                 onClick={() => {
                   setShowNotifications(!showNotifications);
                   setShowProfileMenu(false);
@@ -135,10 +164,10 @@ export default function Navbar() {
               )}
             </div>
             
-            <div className="relative">
+            <div className="relative" ref={profileMenuRef}>
               {isAuthenticated ? (
                 <>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowProfileMenu(!showProfileMenu);
                       setShowNotifications(false);
@@ -156,7 +185,19 @@ export default function Navbar() {
                     <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-white border border-slate-200 shadow-xl py-2 animate-in fade-in zoom-in-95 duration-100">
                       <div className="px-4 py-2 border-b border-slate-100 mb-1">
                         <p className="text-xs text-slate-400 font-medium">내 계정</p>
-                        <p className="text-sm font-bold text-slate-900 truncate">{user?.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 truncate">{user?.name}</p>
+                          {user?.role && (
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded-md text-[10px] font-bold shrink-0",
+                              user.role === 'MENTOR' ? "bg-orange-100 text-orange-600" :
+                              user.role === 'ADMIN' ? "bg-slate-800 text-white" :
+                              "bg-blue-100 text-blue-600"
+                            )}>
+                              {roleLabel[user.role]}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <Link 
                         to="/profile"

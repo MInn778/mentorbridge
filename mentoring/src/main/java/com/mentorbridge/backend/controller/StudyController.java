@@ -4,6 +4,7 @@ import com.mentorbridge.backend.dto.StudyGroupDto;
 import com.mentorbridge.backend.service.StudyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +19,11 @@ public class StudyController {
     @GetMapping
     public ResponseEntity<List<StudyGroupDto>> getAllStudyGroups() {
         return ResponseEntity.ok(studyService.getAllStudyGroups());
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<List<StudyGroupDto>> getMyStudyGroups(Authentication authentication) {
+        return ResponseEntity.ok(studyService.getMyStudyGroups(authentication.getName()));
     }
 
     @PostMapping

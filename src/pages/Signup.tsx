@@ -31,7 +31,7 @@ export default function Signup() {
         throw new Error(data.message || '회원가입에 실패했습니다.');
       }
 
-      login(data.token, { email: data.email, name: data.name, role: data.role });
+      login(data.token, data.refreshToken, { email: data.email, name: data.name, role: data.role });
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);

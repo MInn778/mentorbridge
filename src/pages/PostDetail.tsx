@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, MessageSquare, UserPlus, Send, Edit, Trash2 } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, Send, Edit, Trash2, CheckCircle, RotateCcw, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import UserPopover from '@/components/UserPopover';
+import ApplyModal from '@/components/ApplyModal';
 
 interface Comment {
   commentId: number;
@@ -24,6 +25,7 @@ interface Post {
   tags: string[];
   status: 'RECRUITING' | 'COMPLETED';
   participantNames: string[];
+  maxMembers: number | null;
   createdAt: string;
 }
 
@@ -33,6 +35,8 @@ export default function PostDetail() {
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const { token, user } = useAuth();
 
   const fetchPostAndComments = async () => {
@@ -107,6 +111,28 @@ export default function PostDetail() {
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!post || !token) return;
+    const nextStatus = post.status === 'COMPLETED' ? 'RECRUITING' : 'COMPLETED';
+    try {
+      const res = await fetch(`/api/posts/${postId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (res.ok) {
+        setPost(await res.json());
+      } else {
+        alert('상태 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeletePost = async () => {
     if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
     try {
@@ -127,7 +153,7 @@ export default function PostDetail() {
     }
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!token) {
       alert("로그인이 필요합니다.");
       return;
@@ -137,7 +163,11 @@ export default function PostDetail() {
       alert("이미 모집이 완료된 게시글입니다.");
       return;
     }
-    
+    setShowApplyModal(true);
+  };
+
+  const submitApplication = async (reason: string) => {
+    if (!post) return;
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
@@ -147,15 +177,46 @@ export default function PostDetail() {
         },
         body: JSON.stringify({
           receiverId: post.authorId,
-          content: `${post.title}에 지원합니다.`,
+          content: reason,
           messageType: 'APPLICATION',
           relatedGroupId: post.boardId
         })
       });
       if (res.ok) {
+        setShowApplyModal(false);
         alert("지원이 완료되었습니다. 방장의 수락을 기다려주세요.");
       } else {
         alert("지원에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleReport = () => {
+    if (!token) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    setShowReportModal(true);
+  };
+
+  const submitReport = async (reason: string) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        setShowReportModal(false);
+        alert("신고가 접수되었습니다. 관리자가 확인 후 처리합니다.");
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.message || "신고에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
@@ -177,43 +238,58 @@ export default function PostDetail() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative">
-        {isAuthor && (
-          <div className="absolute top-8 right-8 flex gap-2">
-            <button 
-              onClick={() => navigate(`/community/write?editId=${post.boardId}`)}
-              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <Edit size={18} />
-            </button>
-            <button 
-              onClick={handleDeletePost}
-              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <Trash2 size={18} />
-            </button>
+      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className={cn(
+              "px-3 py-1 rounded-lg text-xs font-bold",
+              getCategory(post.boardType) === '멘토 찾기' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+            )}>
+              {getCategory(post.boardType)}
+            </span>
+            <span className={cn(
+              "px-3 py-1 rounded-lg text-xs font-bold",
+              post.status === 'COMPLETED' ? "bg-slate-200 text-slate-600" : "bg-green-100 text-green-600"
+            )}>
+              {post.status === 'COMPLETED' ? '모집 완료' : '모집 중'}
+            </span>
+            <span className="text-sm text-slate-400">
+              {new Date(post.createdAt).toLocaleString()}
+            </span>
           </div>
-        )}
 
-        <div className="flex items-center gap-3 mb-6">
-          <span className={cn(
-            "px-3 py-1 rounded-lg text-xs font-bold",
-            getCategory(post.boardType) === '멘토 찾기' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
-          )}>
-            {getCategory(post.boardType)}
-          </span>
-          <span className={cn(
-            "px-3 py-1 rounded-lg text-xs font-bold",
-            post.status === 'COMPLETED' ? "bg-slate-200 text-slate-600" : "bg-green-100 text-green-600"
-          )}>
-            {post.status === 'COMPLETED' ? '모집 완료' : '모집 중'}
-          </span>
-          <span className="text-sm text-slate-400 ml-auto mr-16">
-            {new Date(post.createdAt).toLocaleString()}
-          </span>
+          {isAuthor && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={handleToggleStatus}
+                title={post.status === 'COMPLETED' ? '모집 다시 열기' : '모집 완료로 변경'}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors",
+                  post.status === 'COMPLETED'
+                    ? "text-slate-500 hover:text-blue-600 hover:bg-slate-100"
+                    : "text-green-600 bg-green-50 hover:bg-green-100"
+                )}
+              >
+                {post.status === 'COMPLETED' ? <RotateCcw size={16} /> : <CheckCircle size={16} />}
+                {post.status === 'COMPLETED' ? '모집 재개' : '모집 완료'}
+              </button>
+              <button
+                onClick={() => navigate(`/community/write?editId=${post.boardId}`)}
+                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <Edit size={18} />
+              </button>
+              <button
+                onClick={handleDeletePost}
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          )}
         </div>
-        
-        <h1 className="text-3xl font-bold text-slate-900 mb-6 pr-16">{post.title}</h1>
+
+        <h1 className="text-3xl font-bold text-slate-900 mb-6">{post.title}</h1>
         
         <div className="flex items-center gap-4 text-slate-600 mb-8 pb-8 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -224,12 +300,20 @@ export default function PostDetail() {
           </div>
           <div className="flex items-center gap-1">
             <Users size={16} />
-            <span>{post.participantNames?.length || 0} 명</span>
+            <span>{post.participantNames?.length || 0}{post.maxMembers ? `/${post.maxMembers}` : ''} 명</span>
           </div>
           <div className="flex items-center gap-1">
             <MessageSquare size={16} />
             <span>{comments.length}</span>
           </div>
+          {!isAuthor && (
+            <button
+              onClick={handleReport}
+              className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
+            >
+              <Flag size={14} /> 신고하기
+            </button>
+          )}
         </div>
 
         <div className="prose prose-slate max-w-none mb-12 min-h-[200px]">
@@ -334,6 +418,31 @@ export default function PostDetail() {
           </button>
         </form>
       </div>
+
+      {showApplyModal && (
+        <ApplyModal
+          title={post.title}
+          actionLabel={
+            getCategory(post.boardType) === '멘토 찾기' ? '멘토 지원하기' :
+            getCategory(post.boardType) === '스터디' ? '스터디 지원하기' : '프로젝트 지원하기'
+          }
+          onClose={() => setShowApplyModal(false)}
+          onSubmit={submitApplication}
+        />
+      )}
+
+      {showReportModal && (
+        <ApplyModal
+          title={post.title}
+          actionLabel="게시글 신고하기"
+          subtitle={`"${post.title}"을(를) 신고합니다.`}
+          fieldLabel="신고 사유"
+          placeholder="어떤 점이 문제인지 구체적으로 적어주세요."
+          submitLabel="신고하기"
+          onClose={() => setShowReportModal(false)}
+          onSubmit={submitReport}
+        />
+      )}
     </div>
   );
 }

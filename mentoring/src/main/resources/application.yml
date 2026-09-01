@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
 
   application:
     name: mentorbridge-backend
@@ -22,6 +24,14 @@ spring:
     console:
       enabled: true
       path: /h2-console
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: email, profile
   mail:
     host: smtp.gmail.com
     port: 587
@@ -41,6 +51,11 @@ spring:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000} # 24시간 (1일)
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:1209600000} # 14일
+
+app:
+  oauth2:
+    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
 
 server:
   port: 8080
