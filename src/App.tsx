@@ -10,6 +10,7 @@ import MentorSystem from './pages/MentorSystem';
 import Recruitment from './pages/Recruitment';
 import Activities from './pages/Activities';
 import Feedback from './pages/Feedback';
+import PptFeedback from './pages/PptFeedback';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -41,6 +42,8 @@ export default function App() {
               <Route path="/recruitment" element={<Recruitment />} />
               <Route path="/activities" element={<Activities />} />
               <Route path="/feedback" element={<Feedback />} />
+              {/* 미리보기용, 메뉴엔 안 걸어둠 — 확인 후 /feedback 게시판에 통합 예정 */}
+              <Route path="/ppt-feedback-preview" element={<PptFeedback />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/profile/:userId" element={<Profile />} />
               <Route path="/community/:postId" element={<PostDetail />} />
