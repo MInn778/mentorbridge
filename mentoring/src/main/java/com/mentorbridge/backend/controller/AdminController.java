@@ -89,4 +89,11 @@ public class AdminController {
         jobService.notifyUpcomingDeadlines();
         return ResponseEntity.ok().build();
     }
+
+    // 매일 오전 6시 30분 자동 갱신되는 것과 별개로, 공공기관 채용정보를 즉시 한 번 갱신해보고 싶을 때 쓰는 수동 트리거
+    @PostMapping("/jobs/refresh")
+    public ResponseEntity<Void> refreshJobs() {
+        jobService.refreshPublicJobs();
+        return ResponseEntity.ok().build();
+    }
 }

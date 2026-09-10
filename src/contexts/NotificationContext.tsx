@@ -38,9 +38,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         'Authorization': `Bearer ${token}`
       }
     })
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : [])
       .then(data => {
-        setNotifications(data || []);
+        setNotifications(Array.isArray(data) ? data : []);
       })
       .catch(err => console.error('Failed to fetch notifications', err));
 

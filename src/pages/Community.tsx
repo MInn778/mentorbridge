@@ -6,6 +6,15 @@ import { cn } from '@/lib/utils';
 import ApplyModal from '@/components/ApplyModal';
 
 const categories = ['전체', '스터디', '프로젝트', '멘토 찾기', '기타'];
+const meetingTypeOptions = ['온라인', '오프라인', '온오프병행'];
+const regionOptions = ['전국(온라인)', '서울', '경기/인천', '대전/충청', '대구/경북', '부산/경남', '광주/전라', '강원', '제주', '기타'];
+const timeSlotOptions = [
+  { value: '평일_오전', label: '평일 오전' },
+  { value: '평일_오후', label: '평일 오후' },
+  { value: '평일_저녁', label: '평일 저녁' },
+  { value: '주말', label: '주말' },
+  { value: '협의', label: '시간 협의' },
+];
 
 interface Post {
   boardId: number;
@@ -20,13 +29,27 @@ interface Post {
   maxMembers: number | null;
   commentCount: number;
   status: 'RECRUITING' | 'COMPLETED';
+  meetingType: '온라인' | '오프라인' | '온오프병행' | null;
+  region: string | null;
+  timeSlot: '평일_오전' | '평일_오후' | '평일_저녁' | '주말' | '협의' | null;
   createdAt: string;
 }
+
+const timeSlotLabels: Record<string, string> = {
+  '평일_오전': '평일 오전',
+  '평일_오후': '평일 오후',
+  '평일_저녁': '평일 저녁',
+  '주말': '주말',
+  '협의': '시간 협의',
+};
 
 export default function Community() {
   const [activeCategory, setActiveCategory] = useState('전체');
   const [posts, setPosts] = useState<Post[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [meetingFilter, setMeetingFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
+  const [timeSlotFilter, setTimeSlotFilter] = useState('');
   const [applyTarget, setApplyTarget] = useState<Post | null>(null);
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -133,6 +156,41 @@ export default function Community() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        <select
+          value={meetingFilter}
+          onChange={(e) => setMeetingFilter(e.target.value)}
+          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">진행 방식 전체</option>
+          {meetingTypeOptions.map(mt => <option key={mt} value={mt}>{mt}</option>)}
+        </select>
+        <select
+          value={regionFilter}
+          onChange={(e) => setRegionFilter(e.target.value)}
+          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">지역 전체</option>
+          {regionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select
+          value={timeSlotFilter}
+          onChange={(e) => setTimeSlotFilter(e.target.value)}
+          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">시간대 전체</option>
+          {timeSlotOptions.map(ts => <option key={ts.value} value={ts.value}>{ts.label}</option>)}
+        </select>
+        {(meetingFilter || regionFilter || timeSlotFilter) && (
+          <button
+            onClick={() => { setMeetingFilter(''); setRegionFilter(''); setTimeSlotFilter(''); }}
+            className="px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            필터 초기화
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
         {categories.map((cat) => (
           <button
@@ -153,6 +211,9 @@ export default function Community() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts
           .filter(p => activeCategory === '전체' || getCategory(p.boardType) === activeCategory)
+          .filter(p => !meetingFilter || p.meetingType === meetingFilter)
+          .filter(p => !regionFilter || p.region === regionFilter)
+          .filter(p => !timeSlotFilter || p.timeSlot === timeSlotFilter)
           .filter(p => {
             const q = searchQuery.trim().toLowerCase();
             if (!q) return true;
@@ -192,7 +253,20 @@ export default function Community() {
               <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
                 {post.title}
               </h3>
-              <div className="flex flex-wrap gap-2 mt-4">
+              {(post.meetingType || post.region || post.timeSlot) && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {post.meetingType && (
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-1 rounded-md">{post.meetingType}</span>
+                  )}
+                  {post.region && (
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">{post.region}</span>
+                  )}
+                  {post.timeSlot && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-md">{timeSlotLabels[post.timeSlot]}</span>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 mt-3">
                 {(post.tags || []).map(tag => (
                   <span key={tag} className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">#{tag}</span>
                 ))}

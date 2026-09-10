@@ -25,5 +25,6 @@ public class UserProfileDto {
     private String goal;
     private GoalType goalType;
     private String profileImageUrl;
+    private List<String> interests;
     private List<StudyGroupDto> participatingGroups;
 }
