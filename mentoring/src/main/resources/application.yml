@@ -32,6 +32,10 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: email, profile
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
   mail:
     host: smtp.gmail.com
     port: 587
@@ -59,6 +63,17 @@ app:
 
 public-data:
   recruit-api-key: ${PUBLIC_DATA_RECRUIT_API_KEY:}
+
+app-gemini:
+  # 프로퍼티 경로를 gemini.api-key로 하면, Spring의 relaxed binding 때문에
+  # Windows 사용자 환경변수 GEMINI_API_KEY(더미값 your_api_key_here가 들어있음)가
+  # .env 파일 값보다 우선순위가 높게 자동 매칭되어 덮어써버린다.
+  # (환경변수 GEMINI_API_KEY가 프로퍼티 경로 gemini.api-key와 자동으로 매핑됨)
+  # 경로 자체를 다르게 둬서 이 자동 매핑을 피한다.
+  api-key: ${BACKEND_GEMINI_API_KEY:}
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:uploads}
 
 server:
   port: 8080

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Upload, FileText, MessageSquare, Sparkles, Loader2, CheckCircle2, Send, ArrowLeft, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
@@ -19,6 +18,7 @@ interface FeedbackPost {
   title: string;
   content: string;
   fileUrl?: string;
+  fileName?: string;
   aiFeedback: string;
   createdAt: string;
   mentorFeedbacks?: MentorFeedback[];
@@ -85,42 +85,20 @@ export default function Feedback() {
   const handleSubmitPost = async () => {
     if (!title || !file) return;
     setLoading(true);
-    
+
     try {
-      // 1. Generate AI Feedback
-      let aiFeedbackText = "AI 피드백 생성에 실패했습니다.";
-      try {
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-        const prompt = `당신은 전문 커리어 멘토입니다. 사용자가 제출한 '${file.name}' 파일과 내용: '${content}' 에 대해 피드백을 제공해주세요.
-        (실제 파일 내용은 데모이므로, 일반적인 포트폴리오/자소서라고 가정하고 개선 방향에 대한 조언을 마크다운 형식으로 작성해주세요.)
-        1. 강점 분석
-        2. 개선이 필요한 부분
-        3. 향후 학습 방향`;
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('content', content);
+      formData.append('file', file);
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: prompt,
-        });
-        aiFeedbackText = response.text || aiFeedbackText;
-      } catch (err) {
-        console.error("AI Error:", err);
-      }
-
-      // 2. Save Post
-      const payload = {
-        title,
-        content,
-        fileUrl: file.name, // Mock file URL
-        aiFeedback: aiFeedbackText
-      };
-
+      // AI 피드백 생성(첨부파일 텍스트 추출 포함)은 서버에서 처리한다 — 요청이 끝날 때까지 시간이 좀 걸릴 수 있다.
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(payload)
+        body: formData
       });
 
       if (res.ok) {
@@ -129,9 +107,13 @@ export default function Feedback() {
         setContent('');
         setFile(null);
         fetchPosts();
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.message || '게시글 등록에 실패했습니다.');
       }
     } catch (error) {
       console.error("Submit Error:", error);
+      alert('오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -181,15 +163,22 @@ export default function Feedback() {
           <h1 className="text-2xl font-bold text-slate-900 mb-2">{selectedPost.title}</h1>
           <p className="text-slate-600 mb-6">{selectedPost.content}</p>
           
-          <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-            <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
-              <FileText size={24} />
-            </div>
-            <div>
-              <p className="font-bold text-slate-900 text-sm">첨부파일</p>
-              <p className="text-xs text-slate-500">{selectedPost.fileUrl}</p>
-            </div>
-          </div>
+          {selectedPost.fileUrl && (
+            <a
+              href={selectedPost.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                <FileText size={24} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 text-sm">첨부파일</p>
+                <p className="text-xs text-slate-500">{selectedPost.fileName || '파일 열기'}</p>
+              </div>
+            </a>
+          )}
         </header>
 
         <section className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
@@ -299,11 +288,12 @@ export default function Feedback() {
                   file ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-blue-400 hover:bg-slate-50"
                 )}
               >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  className="hidden" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.hwp"
+                  className="hidden"
                 />
                 {file ? (
                   <div className="flex items-center gap-3">
@@ -313,8 +303,8 @@ export default function Feedback() {
                 ) : (
                   <div className="space-y-2">
                     <Upload className="text-slate-400 mx-auto" size={24} />
-                    <p className="text-sm font-medium text-slate-600">이력서 또는 포트폴리오 업로드</p>
-                    <p className="text-xs text-slate-400">PDF, DOCX 지원</p>
+                    <p className="text-sm font-medium text-slate-600">이력서, 포트폴리오 또는 발표자료(PPT) 업로드</p>
+                    <p className="text-xs text-slate-400">PDF, DOCX, PPT/PPTX 지원 (텍스트 추출 가능한 파일만 AI가 내용을 읽습니다)</p>
                   </div>
                 )}
               </div>
