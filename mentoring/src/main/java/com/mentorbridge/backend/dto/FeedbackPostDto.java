@@ -22,5 +22,6 @@ public class FeedbackPostDto {
     private String fileName;
     private String aiFeedback;
     private LocalDateTime createdAt;
+    private long mentorFeedbackCount;
     private List<MentorFeedbackDto> mentorFeedbacks;
 }

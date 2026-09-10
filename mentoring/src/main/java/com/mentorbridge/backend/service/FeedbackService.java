@@ -10,6 +10,7 @@ import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -120,10 +121,19 @@ public class FeedbackService {
     }
 
     @Transactional(readOnly = true)
-    public FeedbackPostDto getFeedbackPost(Integer id) {
+    public FeedbackPostDto getFeedbackPost(Integer id, String email) {
         FeedbackPost post = feedbackPostRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Feedback Post not found"));
-        
+
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean isAuthor = post.getAuthor().getId().equals(requester.getId());
+        boolean canReview = requester.getRole() == Role.MENTOR || requester.getRole() == Role.ADMIN;
+        if (!isAuthor && !canReview) {
+            throw new AccessDeniedException("본인이 작성한 피드백 요청만 열람할 수 있습니다.");
+        }
+
         FeedbackPostDto dto = mapToDto(post);
         
         List<MentorFeedbackDto> feedbacks = mentorFeedbackRepository.findByFeedbackPostIdOrderByCreatedAtAsc(id).stream()
@@ -160,8 +170,9 @@ public class FeedbackService {
 
         feedback = mentorFeedbackRepository.save(feedback);
 
-        // Notify author
-        notificationService.sendNotification(post.getAuthor().getId(), NotificationType.COMMENT, "게시글에 멘토의 피드백이 등록되었습니다.", "/feedback");
+        // Notify author — 특정 게시글의 멘토 코멘트 탭으로 바로 이동할 수 있도록 링크에 게시글 id를 포함한다.
+        notificationService.sendNotification(post.getAuthor().getId(), NotificationType.COMMENT,
+                "게시글에 멘토의 피드백이 등록되었습니다.", "/feedback?post=" + post.getId());
 
         return MentorFeedbackDto.builder()
                 .id(feedback.getId())
@@ -184,6 +195,7 @@ public class FeedbackService {
                 .fileName(post.getFileName())
                 .aiFeedback(post.getAiFeedback())
                 .createdAt(post.getCreatedAt())
+                .mentorFeedbackCount(mentorFeedbackRepository.countByFeedbackPostId(post.getId()))
                 .build();
     }
 }

@@ -3,6 +3,11 @@ package com.mentorbridge.backend.service;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.hslf.usermodel.HSLFSlide;
+import org.apache.poi.hslf.usermodel.HSLFSlideShow;
+import org.apache.poi.hslf.usermodel.HSLFTextParagraph;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFShape;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
@@ -15,11 +20,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.List;
 
 /**
- * 업로드된 첨부파일(pptx/docx/pdf)에서 텍스트를 뽑아 AI 프롬프트에 넣기 위한 서비스.
- * 구버전 포맷(.ppt/.doc)이나 그 외 확장자는 지원하지 않고 null을 반환한다 — 호출부는
- * 이 경우 제목/본문만으로 프롬프트를 구성해서 게시글 작성 자체는 계속 진행한다.
+ * 업로드된 첨부파일(pptx/ppt/docx/doc/pdf)에서 텍스트를 뽑아 AI 프롬프트에 넣기 위한 서비스.
+ * hwp나 그 외 확장자는 지원하지 않고 null을 반환한다 — 호출부는 이 경우 제목/본문만으로
+ * 프롬프트를 구성해서 게시글 작성 자체는 계속 진행한다.
  */
 @Service
 public class FileTextExtractionService {
@@ -36,8 +42,12 @@ public class FileTextExtractionService {
             String text;
             if (lower.endsWith(".pptx")) {
                 text = extractFromPptx(file.getInputStream());
+            } else if (lower.endsWith(".ppt")) {
+                text = extractFromPpt(file.getInputStream());
             } else if (lower.endsWith(".docx")) {
                 text = extractFromDocx(file.getInputStream());
+            } else if (lower.endsWith(".doc")) {
+                text = extractFromDoc(file.getInputStream());
             } else if (lower.endsWith(".pdf")) {
                 text = extractFromPdf(file.getInputStream());
             } else {
@@ -71,9 +81,33 @@ public class FileTextExtractionService {
         return sb.toString();
     }
 
+    private String extractFromPpt(InputStream in) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        try (HSLFSlideShow ppt = new HSLFSlideShow(in)) {
+            int slideNo = 1;
+            for (HSLFSlide slide : ppt.getSlides()) {
+                sb.append("[슬라이드 ").append(slideNo++).append("]\n");
+                for (List<HSLFTextParagraph> paragraphs : slide.getTextParagraphs()) {
+                    String t = HSLFTextParagraph.getText(paragraphs);
+                    if (t != null && !t.isBlank()) {
+                        sb.append(t).append("\n");
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
+
     private String extractFromDocx(InputStream in) throws Exception {
         try (XWPFDocument doc = new XWPFDocument(in);
              XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
+            return extractor.getText();
+        }
+    }
+
+    private String extractFromDoc(InputStream in) throws Exception {
+        try (HWPFDocument doc = new HWPFDocument(in);
+             WordExtractor extractor = new WordExtractor(doc)) {
             return extractor.getText();
         }
     }

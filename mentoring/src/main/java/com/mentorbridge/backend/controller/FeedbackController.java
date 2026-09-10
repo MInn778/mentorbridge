@@ -61,8 +61,8 @@ public class FeedbackController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<FeedbackPostDto> getFeedbackPost(@PathVariable Integer id) {
-        return ResponseEntity.ok(feedbackService.getFeedbackPost(id));
+    public ResponseEntity<FeedbackPostDto> getFeedbackPost(Authentication authentication, @PathVariable Integer id) {
+        return ResponseEntity.ok(feedbackService.getFeedbackPost(id, authentication.getName()));
     }
 
     @PostMapping("/{id}/comment")
