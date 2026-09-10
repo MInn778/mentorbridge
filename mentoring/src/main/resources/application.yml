@@ -57,5 +57,8 @@ app:
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
 
+public-data:
+  recruit-api-key: ${PUBLIC_DATA_RECRUIT_API_KEY:}
+
 server:
   port: 8080

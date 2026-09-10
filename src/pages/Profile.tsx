@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Shield, Edit2, Check, X, Target, Users, ExternalLink } from 'lucide-react';
+import { User, Shield, Edit2, Check, X, Target, Users, ExternalLink, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface StudyGroup {
@@ -26,6 +26,7 @@ interface UserProfile {
   goal: string | null;
   goalType: '취업' | '대학원' | '자격증' | null;
   profileImageUrl: string | null;
+  interests?: string[];
   participatingGroups?: StudyGroup[];
 }
 
@@ -36,6 +37,7 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [interestInput, setInterestInput] = useState('');
 
   // If no userId is in URL, it's "my profile"
   const isMyProfile = !userId || (profile && currentUser && profile.userName === currentUser.name);
@@ -61,6 +63,21 @@ export default function Profile() {
         setIsLoading(false);
       });
   }, [token, userId]);
+
+  const handleAddInterest = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && interestInput.trim()) {
+      e.preventDefault();
+      const current = editForm.interests || [];
+      if (!current.includes(interestInput.trim()) && current.length < 10) {
+        setEditForm({ ...editForm, interests: [...current, interestInput.trim()] });
+      }
+      setInterestInput('');
+    }
+  };
+
+  const removeInterest = (tagToRemove: string) => {
+    setEditForm({ ...editForm, interests: (editForm.interests || []).filter(tag => tag !== tagToRemove) });
+  };
 
   const handleSave = async () => {
     try {
@@ -123,7 +140,6 @@ export default function Profile() {
                     </span>
                   )}
                 </div>
-                <p className="text-slate-500 font-medium">사용자 ID: {profile.userId}</p>
               </div>
             </div>
             
@@ -144,7 +160,7 @@ export default function Profile() {
                     <Check size={16} /> 저장
                   </button>
                   <button 
-                    onClick={() => { setIsEditing(false); setEditForm(profile); }}
+                    onClick={() => { setIsEditing(false); setEditForm(profile); setInterestInput(''); }}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium transition-colors"
                   >
                     <X size={16} /> 취소
@@ -214,6 +230,43 @@ export default function Profile() {
                       {skill.trim()}
                     </span>
                   )) : '-'}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block flex items-center gap-1">
+                <Sparkles size={12} /> 관심분야 태그
+              </label>
+              {isEditing ? (
+                <div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(editForm.interests || []).map(tag => (
+                      <span key={tag} className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                        #{tag}
+                        <button type="button" onClick={() => removeInterest(tag)} className="hover:text-blue-900">
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={interestInput}
+                    onChange={(e) => setInterestInput(e.target.value)}
+                    onKeyDown={handleAddInterest}
+                    disabled={(editForm.interests || []).length >= 10}
+                    placeholder="태그를 입력하고 Enter (예: 프론트엔드, 알고리즘, 오프라인)"
+                    className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {profile.interests && profile.interests.length > 0 ? profile.interests.map(tag => (
+                    <span key={tag} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-bold">
+                      #{tag}
+                    </span>
+                  )) : <p className="text-sm text-slate-400">-</p>}
                 </div>
               )}
             </div>

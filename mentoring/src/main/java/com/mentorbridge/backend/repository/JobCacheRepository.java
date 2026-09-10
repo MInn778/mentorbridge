@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface JobCacheRepository extends JpaRepository<JobCache, Integer> {
     List<JobCache> findByTitleContainingIgnoreCaseOrCompanyContainingIgnoreCase(String title, String company);
     Optional<JobCache> findByExternalJobIdAndSource(String externalJobId, String source);
+    void deleteBySource(String source);
 }

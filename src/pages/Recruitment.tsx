@@ -84,8 +84,8 @@ export default function Recruitment() {
           <Building2 size={24} />
         </div>
         <div>
-          <h2 className="font-bold text-blue-900">사람인 API 연동 예정</h2>
-          <p className="text-sm text-blue-700">지금은 자체 캐시(job_cache)에 저장된 샘플 공고를 보여드리고 있어요. 마음에 드는 공고는 북마크해두세요.</p>
+          <h2 className="font-bold text-blue-900">공공기관 채용정보 연동</h2>
+          <p className="text-sm text-blue-700">재정경제부 공공기관 채용정보 API에서 매일 새벽 자동으로 최신 공고를 가져옵니다. 마음에 드는 공고는 북마크해두세요.</p>
         </div>
       </div>
 

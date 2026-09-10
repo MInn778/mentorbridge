@@ -26,8 +26,19 @@ interface Post {
   status: 'RECRUITING' | 'COMPLETED';
   participantNames: string[];
   maxMembers: number | null;
+  meetingType: '온라인' | '오프라인' | '온오프병행' | null;
+  region: string | null;
+  timeSlot: '평일_오전' | '평일_오후' | '평일_저녁' | '주말' | '협의' | null;
   createdAt: string;
 }
+
+const timeSlotLabels: Record<string, string> = {
+  '평일_오전': '평일 오전',
+  '평일_오후': '평일 오후',
+  '평일_저녁': '평일 저녁',
+  '주말': '주말',
+  '협의': '시간 협의',
+};
 
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
@@ -290,7 +301,21 @@ export default function PostDetail() {
         </div>
 
         <h1 className="text-3xl font-bold text-slate-900 mb-6">{post.title}</h1>
-        
+
+        {(post.meetingType || post.region || post.timeSlot) && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {post.meetingType && (
+              <span className="text-xs font-bold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-md">{post.meetingType}</span>
+            )}
+            {post.region && (
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-md">{post.region}</span>
+            )}
+            {post.timeSlot && (
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-md">{timeSlotLabels[post.timeSlot]}</span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-4 text-slate-600 mb-8 pb-8 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">

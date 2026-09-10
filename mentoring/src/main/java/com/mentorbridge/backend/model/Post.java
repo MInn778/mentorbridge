@@ -50,6 +50,17 @@ public class Post {
     @Builder.Default
     private Boolean isDeleted = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meeting_type")
+    private MeetingType meetingType;
+
+    @Column(name = "region", length = 50)
+    private String region;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "time_slot")
+    private TimeSlot timeSlot;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deleted_by")
     private User deletedBy;

@@ -63,6 +63,9 @@ public class PostService {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .status(request.getStatus() != null ? request.getStatus() : PostStatus.RECRUITING)
+                .meetingType(request.getMeetingType())
+                .region(request.getRegion())
+                .timeSlot(request.getTimeSlot())
                 .build();
 
         Post savedPost = postRepository.save(post);
@@ -113,7 +116,10 @@ public class PostService {
         if (request.getStatus() != null) {
             post.setStatus(request.getStatus());
         }
-        
+        post.setMeetingType(request.getMeetingType());
+        post.setRegion(request.getRegion());
+        post.setTimeSlot(request.getTimeSlot());
+
         Post savedPost = postRepository.save(post);
 
         // Update tags
@@ -223,6 +229,9 @@ public class PostService {
                 .participantNames(participantNames)
                 .maxMembers(maxMembersHolder[0])
                 .commentCount(commentCount)
+                .meetingType(post.getMeetingType())
+                .region(post.getRegion())
+                .timeSlot(post.getTimeSlot())
                 .createdAt(post.getCreatedAt())
                 .build();
     }

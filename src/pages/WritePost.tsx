@@ -17,6 +17,19 @@ export default function WritePost() {
   const [tagInput, setTagInput] = useState('');
   const [status, setStatus] = useState<'RECRUITING' | 'COMPLETED'>('RECRUITING');
   const [maxMembers, setMaxMembers] = useState(10);
+  const [meetingType, setMeetingType] = useState<'온라인' | '오프라인' | '온오프병행' | ''>('');
+  const [region, setRegion] = useState('');
+  const [timeSlot, setTimeSlot] = useState<'평일_오전' | '평일_오후' | '평일_저녁' | '주말' | '협의' | ''>('');
+
+  const meetingTypes: Array<'온라인' | '오프라인' | '온오프병행'> = ['온라인', '오프라인', '온오프병행'];
+  const regions = ['전국(온라인)', '서울', '경기/인천', '대전/충청', '대구/경북', '부산/경남', '광주/전라', '강원', '제주', '기타'];
+  const timeSlots: Array<{ value: '평일_오전' | '평일_오후' | '평일_저녁' | '주말' | '협의'; label: string }> = [
+    { value: '평일_오전', label: '평일 오전' },
+    { value: '평일_오후', label: '평일 오후' },
+    { value: '평일_저녁', label: '평일 저녁' },
+    { value: '주말', label: '주말' },
+    { value: '협의', label: '시간 협의' },
+  ];
 
   // value는 백엔드 BoardType enum과 그대로 맞춰야 하고, label만 화면에 표시되는 이름
   const boardTypes = [
@@ -42,6 +55,9 @@ export default function WritePost() {
         setTags(data.tags || []);
         if (data.status) setStatus(data.status);
         if (data.maxMembers) setMaxMembers(data.maxMembers);
+        setMeetingType(data.meetingType || '');
+        setRegion(data.region || '');
+        setTimeSlot(data.timeSlot || '');
       })
       .catch(err => console.error(err));
     }
@@ -78,7 +94,13 @@ export default function WritePost() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ boardType, title, content, tags, status, maxMembers: boardType === '자유' ? null : maxMembers })
+        body: JSON.stringify({
+          boardType, title, content, tags, status,
+          maxMembers: boardType === '자유' ? null : maxMembers,
+          meetingType: boardType === '자유' ? null : (meetingType || null),
+          region: boardType === '자유' ? null : (region || null),
+          timeSlot: boardType === '자유' ? null : (timeSlot || null),
+        })
       });
 
       if (response.ok) {
@@ -157,6 +179,57 @@ export default function WritePost() {
               placeholder="예: 5"
             />
             <p className="text-xs text-slate-400">작성자(방장) 본인도 인원에 포함됩니다.</p>
+          </div>
+        )}
+
+        {boardType !== '자유' && (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-slate-700">진행 방식</label>
+              <div className="flex flex-wrap gap-2">
+                {meetingTypes.map(mt => (
+                  <button
+                    key={mt}
+                    type="button"
+                    onClick={() => setMeetingType(meetingType === mt ? '' : mt)}
+                    className={cn(
+                      "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border",
+                      meetingType === mt
+                        ? "bg-blue-50 border-blue-200 text-blue-700"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"
+                    )}
+                  >
+                    {mt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-slate-700">활동 지역</label>
+                <select
+                  value={region}
+                  onChange={e => setRegion(e.target.value)}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
+                >
+                  <option value="">선택 안 함</option>
+                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-slate-700">선호 시간대</label>
+                <select
+                  value={timeSlot}
+                  onChange={e => setTimeSlot(e.target.value as any)}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
+                >
+                  <option value="">선택 안 함</option>
+                  {timeSlots.map(ts => <option key={ts.value} value={ts.value}>{ts.label}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
         )}
 
