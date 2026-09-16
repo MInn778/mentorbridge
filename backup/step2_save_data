@@ -1,0 +1,52 @@
+import json
+import os
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain.schema import Document
+
+# 1. 제미나이 API 키 설정
+os.environ["GOOGLE_API_KEY"] = "AIzaSyBfylBIEUCYlOv7wVuvvBNSmjoRUg4L5Ro"
+
+def create_free_vector_db():
+    # 2. 아까 저장한 JSON 데이터 읽기
+    if not os.path.exists("career_data.json"):
+        print("에러: career_data.json 파일이 없습니다. 1번 단계를 먼저 실행해주세요.")
+        return
+
+    with open("career_data.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    job_list = data["dataSearch"]["content"]
+    
+    # 3. AI 학습용 데이터로 변환
+    documents = []
+    print(f"총 {len(job_list)}개의 직업 데이터를 가공 중입니다...")
+    
+    for job in job_list:
+        # AI가 검색할 핵심 내용
+        page_content = f"직업명: {job['jobnm']}\n개요: {job['job_summary']}"
+        # 부가 정보 저장
+        metadata = {"job_name": job['jobnm']}
+        documents.append(Document(page_content=page_content, metadata=metadata))
+    
+    # 4. 무료 로컬 임베딩 모델 설정 (한국어 전용 모델)
+    print("로컬 임베딩 모델(ko-sroberta)을 로드 중입니다. 첫 실행 시 모델 다운로드에 시간이 걸릴 수 있습니다...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="jhgan/ko-sroberta-multitask",
+        model_kwargs={'device': 'cpu'}
+    )
+    
+    # 5. ChromaDB 생성 및 저장
+    print("데이터를 벡터로 변환하여 'career_db_free' 폴더에 저장합니다...")
+    vector_db = Chroma.from_documents(
+        documents=documents,
+        embedding=embeddings,
+        persist_directory="./career_db_free"
+    )
+    
+    print("-" * 50)
+    print("성공! 무료 버전 AI 지식 저장소 구축이 완료되었습니다.")
+    print("이제 './career_db_free' 폴더가 생성되었으며, 다음 단계에서 이를 사용합니다.")
+
+if __name__ == "__main__":
+    create_free_vector_db()

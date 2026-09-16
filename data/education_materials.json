@@ -1,0 +1,10 @@
+{
+  "result": {
+    "content": [
+      {
+        "code": "-4",
+        "message": "svcCode가 틀립니다."
+      }
+    ]
+  }
+}

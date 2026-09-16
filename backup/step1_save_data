@@ -1,0 +1,43 @@
+import requests
+import json
+
+def fetch_and_save_data():
+    # 발급받으신 인증키
+    API_KEY = "73b0418f817eeb1469b8b2e843dc33b0"
+    url = "https://www.career.go.kr/cnet/openapi/getOpenApi"
+    
+    # 넉넉하게 200개 정도의 직업 데이터를 한 번에 가져오도록 설정합니다.
+    params = {
+        "apiKey": API_KEY,
+        "svcType": "api",
+        "svcCode": "JOB",
+        "contentType": "json",
+        "perPage": "200" 
+    }
+    
+    print("커리어넷에서 데이터를 가져와 파일로 저장하는 중...")
+    
+    try:
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # 1. 원본 데이터 전체를 JSON 파일로 저장
+            with open("career_data.json", "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            
+            print(f"성공! 'career_data.json' 파일이 생성되었습니다.")
+            
+            # 데이터 개수 확인
+            if "dataSearch" in data and "content" in data["dataSearch"]:
+                count = len(data["dataSearch"]["content"])
+                print(f"총 {count}개의 직업 데이터가 수집되었습니다.")
+        else:
+            print(f"요청 실패! 상태 코드: {response.status_code}")
+            
+    except Exception as e:
+        print(f"에러 발생: {e}")
+
+if __name__ == "__main__":
+    fetch_and_save_data()
