@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Sparkles, Send, Loader2, RefreshCcw, ArrowRight, SkipForward } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -33,22 +32,14 @@ export default function AICareer() {
   const generateRecommendation = async (finalAnswers: Record<string, string>) => {
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const prompt = `사용자의 주관식 답변을 바탕으로 IT 진로를 추천해주세요.
-      답변 내용:
-      1. 관심 분야: ${finalAnswers.interest}
-      2. 기술 스택: ${finalAnswers.techStack}
-      3. 자격증: ${finalAnswers.certificates}
-      4. 성향/방식: ${finalAnswers.personality}
-      
-      추천하는 구체적인 직무, 필요한 추가 기술 스택, 그리고 학습 로드맵을 한국어로 상세히 설명해주세요. 마크다운 형식을 사용하세요. 답변하지 않은 항목은 고려하지 말고 나머지 정보를 바탕으로 최선의 추천을 해주세요.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
+      const res = await fetch('/api/career/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalAnswers),
       });
-
-      setResult(response.text || "추천 결과를 생성할 수 없습니다.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '추천 생성에 실패했습니다.');
+      setResult(data.result || "추천 결과를 생성할 수 없습니다.");
     } catch (error) {
       console.error("AI Error:", error);
       setResult("오류가 발생했습니다. 다시 시도해주세요.");
