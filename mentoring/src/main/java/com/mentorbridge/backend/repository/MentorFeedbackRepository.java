@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface MentorFeedbackRepository extends JpaRepository<MentorFeedback, Integer> {
     List<MentorFeedback> findByFeedbackPostIdOrderByCreatedAtAsc(Integer feedbackPostId);
+    long countByFeedbackPostId(Integer feedbackPostId);
 }

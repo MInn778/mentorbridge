@@ -35,6 +35,9 @@ public class FeedbackPost {
     @Column(name = "file_url", length = 500)
     private String fileUrl;
 
+    @Column(name = "file_name", length = 255)
+    private String fileName;
+
     @Column(name = "ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 

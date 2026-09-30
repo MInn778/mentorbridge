@@ -19,7 +19,9 @@ public class FeedbackPostDto {
     private String title;
     private String content;
     private String fileUrl;
+    private String fileName;
     private String aiFeedback;
     private LocalDateTime createdAt;
+    private long mentorFeedbackCount;
     private List<MentorFeedbackDto> mentorFeedbacks;
 }
