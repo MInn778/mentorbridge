@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Target, Users, Briefcase, MessageSquare, ArrowRight, ExternalLink, ChevronDown, Pin, Megaphone, Check, X } from 'lucide-react';
+import { Target, Users, Briefcase, MessageSquare, ArrowRight, ExternalLink, ChevronDown, Pin, Megaphone, Check, X, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +36,7 @@ interface FeedbackPost {
   title: string;
   content: string;
   createdAt: string;
+  mentorFeedbackCount: number;
 }
 
 interface Bookmark {
@@ -246,9 +247,22 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {myFeedback.map(f => (
-                  <Link key={f.id} to="/feedback" className="block p-4 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-colors">
-                    <p className="font-bold text-slate-900 line-clamp-1">{f.title}</p>
-                    <p className="text-xs text-slate-400 mt-1">{new Date(f.createdAt).toLocaleDateString()}</p>
+                  <Link
+                    key={f.id}
+                    to={`/feedback?post=${f.id}`}
+                    className="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 line-clamp-1">{f.title}</p>
+                      <p className="text-xs text-slate-400 mt-1">{new Date(f.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    {f.mentorFeedbackCount > 0 ? (
+                      <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full whitespace-nowrap shrink-0">
+                        <CheckCircle2 size={12} /> 멘토 답변 {f.mentorFeedbackCount}건
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium text-slate-400 whitespace-nowrap shrink-0">답변 대기중</span>
+                    )}
                   </Link>
                 ))}
               </div>
