@@ -48,6 +48,7 @@ export default function PostDetail() {
   const [newComment, setNewComment] = useState('');
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [application, setApplication] = useState<{ id: number; status: 'PENDING' | 'ACCEPTED' | 'REJECTED' } | null>(null);
   const { token, user } = useAuth();
 
   const fetchPostAndComments = async () => {
@@ -65,6 +66,14 @@ export default function PostDetail() {
       }
       if (commentsRes.ok) {
         setComments(await commentsRes.json());
+      }
+
+      if (token) {
+        const appRes = await fetch(`/api/messages/application-status?postId=${postId}`, { headers });
+        if (appRes.ok) {
+          const data = await appRes.json();
+          setApplication(data ? { id: data.id, status: data.status } : null);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -194,10 +203,32 @@ export default function PostDetail() {
         })
       });
       if (res.ok) {
+        const created = await res.json();
         setShowApplyModal(false);
+        setApplication({ id: created.id, status: 'PENDING' });
         alert("지원이 완료되었습니다. 방장의 수락을 기다려주세요.");
       } else {
-        alert("지원에 실패했습니다.");
+        const data = await res.json().catch(() => null);
+        alert(data?.message || "지원에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCancelApplication = async () => {
+    if (!application || !token) return;
+    if (!confirm("지원을 취소하시겠습니까?")) return;
+    try {
+      const res = await fetch(`/api/messages/${application.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setApplication(null);
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.message || "지원 취소에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
@@ -374,22 +405,38 @@ export default function PostDetail() {
 
         {getCategory(post.boardType) !== '기타' && !isAuthor && (
           <div className="flex justify-center border-t border-slate-100 pt-8">
-            <button 
-              onClick={handleApply}
-              disabled={post.status === 'COMPLETED'}
-              className={cn(
-                "flex items-center justify-center gap-2 text-white px-12 py-4 rounded-2xl font-bold transition-all shadow-lg",
-                post.status === 'COMPLETED' ? "bg-slate-300 shadow-none cursor-not-allowed" :
-                getCategory(post.boardType) === '멘토 찾기' ? "bg-orange-500 hover:bg-orange-600 shadow-orange-200" :
-                getCategory(post.boardType) === '스터디' ? "bg-blue-600 hover:bg-blue-700 shadow-blue-200" :
-                "bg-purple-600 hover:bg-purple-700 shadow-purple-200"
-              )}
-            >
-              <UserPlus size={20} /> 
-              {post.status === 'COMPLETED' ? '모집 완료' : 
-               getCategory(post.boardType) === '멘토 찾기' ? '멘토 지원하기' : 
-               getCategory(post.boardType) === '스터디' ? '스터디 지원하기' : '프로젝트 지원하기'}
-            </button>
+            {application?.status === 'PENDING' ? (
+              <button
+                onClick={handleCancelApplication}
+                className="flex items-center justify-center gap-2 bg-slate-100 text-slate-600 px-12 py-4 rounded-2xl font-bold hover:bg-red-50 hover:text-red-600 transition-all"
+              >
+                <CheckCircle size={20} /> 지원 완료 · 취소하기
+              </button>
+            ) : application?.status === 'ACCEPTED' ? (
+              <button
+                disabled
+                className="flex items-center justify-center gap-2 bg-green-100 text-green-700 px-12 py-4 rounded-2xl font-bold cursor-default"
+              >
+                <CheckCircle size={20} /> 참여 중인 스터디입니다
+              </button>
+            ) : (
+              <button
+                onClick={handleApply}
+                disabled={post.status === 'COMPLETED'}
+                className={cn(
+                  "flex items-center justify-center gap-2 text-white px-12 py-4 rounded-2xl font-bold transition-all shadow-lg",
+                  post.status === 'COMPLETED' ? "bg-slate-300 shadow-none cursor-not-allowed" :
+                  getCategory(post.boardType) === '멘토 찾기' ? "bg-orange-500 hover:bg-orange-600 shadow-orange-200" :
+                  getCategory(post.boardType) === '스터디' ? "bg-blue-600 hover:bg-blue-700 shadow-blue-200" :
+                  "bg-purple-600 hover:bg-purple-700 shadow-purple-200"
+                )}
+              >
+                <UserPlus size={20} />
+                {post.status === 'COMPLETED' ? '모집 완료' :
+                 getCategory(post.boardType) === '멘토 찾기' ? '멘토 지원하기' :
+                 getCategory(post.boardType) === '스터디' ? '스터디 지원하기' : '프로젝트 지원하기'}
+              </button>
+            )}
           </div>
         )}
       </div>

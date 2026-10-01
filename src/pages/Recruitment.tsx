@@ -51,7 +51,11 @@ export default function Recruitment() {
   };
 
   useEffect(() => {
-    if (token) fetchJobs();
+    if (token) {
+      fetchJobs();
+    } else {
+      setLoading(false);
+    }
   }, [token]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -104,6 +108,8 @@ export default function Recruitment() {
 
       {loading ? (
         <div className="text-center text-slate-400 py-12">불러오는 중...</div>
+      ) : !token ? (
+        <div className="text-center text-slate-400 py-12">로그인 후 채용 공고를 확인할 수 있습니다.</div>
       ) : jobs.length === 0 ? (
         <div className="text-center text-slate-400 py-12">검색 결과가 없습니다.</div>
       ) : (

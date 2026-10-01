@@ -43,6 +43,7 @@ export default function Feedback() {
   
   const [mentorComment, setMentorComment] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'ai' | 'mentor'>('ai');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,6 +110,28 @@ export default function Feedback() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!selectedPostId) return;
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/feedback/${selectedPostId}/regenerate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPost(data);
+      } else {
+        alert('AI 피드백을 다시 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('AI 피드백을 다시 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -281,8 +304,22 @@ export default function Feedback() {
           </div>
 
           {activeTab === 'ai' ? (
-            <div className="prose prose-slate max-w-none">
-              <ReactMarkdown>{selectedPost.aiFeedback}</ReactMarkdown>
+            <div>
+              {selectedPost.authorName === user?.name && (
+                <div className="flex justify-end mb-4">
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={regenerating}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {regenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {regenerating ? '다시 생성하는 중...' : 'AI 피드백 다시 생성'}
+                  </button>
+                </div>
+              )}
+              <div className="prose prose-slate max-w-none">
+                <ReactMarkdown>{selectedPost.aiFeedback}</ReactMarkdown>
+              </div>
             </div>
           ) : (
             <>

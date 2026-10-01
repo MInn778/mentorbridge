@@ -9,6 +9,8 @@ import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -50,6 +52,19 @@ public class NotificationService {
         }
 
         return emitter;
+    }
+
+    /**
+     * SSE 연결은 서버가 완전히 종료될 때까지(최대 1시간) 끝나지 않는 요청으로 취급돼서,
+     * 그냥 두면 Graceful shutdown이 매번 타임아웃(기본 30초)까지 대기하다 강제 종료된다.
+     * ContextClosedEvent는 Tomcat의 graceful shutdown(활성 요청 대기)보다 먼저 발행되므로,
+     * 여기서 열려 있는 emitter를 모두 즉시 완료시켜야 그 대기 자체가 걸리지 않는다.
+     * (참고: @PreDestroy는 graceful shutdown 대기가 끝난 "이후"에 실행돼서 너무 늦다.)
+     */
+    @EventListener(ContextClosedEvent.class)
+    public void closeAllEmitters() {
+        emitters.values().forEach(SseEmitter::complete);
+        emitters.clear();
     }
 
     @Transactional

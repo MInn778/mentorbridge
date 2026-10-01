@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User as UserIcon, Bell, LogOut, Settings, UserCircle } from 'lucide-react';
+import { Menu, X, User as UserIcon, Bell, Mail, LogOut, Settings, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -26,8 +26,9 @@ export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, token, logout, isAuthenticated } = useAuth();
   const { notifications, unreadCount, markAsRead } = useNotifications();
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,20 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setUnreadMessageCount(0);
+      return;
+    }
+    fetch('/api/messages', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        const messages = Array.isArray(data) ? data : [];
+        setUnreadMessageCount(messages.filter((m: any) => !m.isRead).length);
+      })
+      .catch(() => {});
+  }, [token, isAuthenticated, location.pathname]);
 
   const navItems = user?.role === 'ADMIN'
     ? [...baseNavItems, { name: '관리자', path: '/admin' }]
@@ -94,6 +109,18 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 relative">
+            {isAuthenticated && (
+              <Link
+                to="/messages"
+                className="p-2 text-slate-400 hover:text-blue-600 transition-colors hidden sm:block relative"
+              >
+                <Mail size={20} />
+                {unreadMessageCount > 0 && (
+                  <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                )}
+              </Link>
+            )}
+
             <div className="relative" ref={notificationsRef}>
               <button
                 onClick={() => {

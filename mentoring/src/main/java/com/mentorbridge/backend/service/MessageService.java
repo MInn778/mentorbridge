@@ -42,6 +42,15 @@ public class MessageService {
         User receiver = userRepository.findById(dto.getReceiverId())
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
+        if (dto.getMessageType() == MessageType.APPLICATION && dto.getRelatedGroupId() != null) {
+            messageRepository.findFirstBySenderAndRelatedGroupIdAndMessageTypeOrderByCreatedAtDesc(
+                            sender, dto.getRelatedGroupId(), MessageType.APPLICATION)
+                    .filter(m -> m.getStatus() == MessageStatus.PENDING || m.getStatus() == MessageStatus.ACCEPTED)
+                    .ifPresent(m -> {
+                        throw new RuntimeException("이미 지원한 스터디입니다.");
+                    });
+        }
+
         Message message = Message.builder()
                 .sender(sender)
                 .receiver(receiver)
@@ -60,6 +69,34 @@ public class MessageService {
                 "/messages");
 
         return mapToDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public MessageDto getApplicationStatus(String email, Integer relatedGroupId) {
+        User sender = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return messageRepository.findFirstBySenderAndRelatedGroupIdAndMessageTypeOrderByCreatedAtDesc(
+                        sender, relatedGroupId, MessageType.APPLICATION)
+                .map(this::mapToDto)
+                .orElse(null);
+    }
+
+    @Transactional
+    public void cancelApplication(String email, Integer messageId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        User sender = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!message.getSender().getId().equals(sender.getId())) {
+            throw new RuntimeException("본인이 지원한 신청만 취소할 수 있습니다.");
+        }
+        if (message.getMessageType() != MessageType.APPLICATION || message.getStatus() != MessageStatus.PENDING) {
+            throw new RuntimeException("취소할 수 없는 상태입니다.");
+        }
+
+        messageRepository.delete(message);
     }
 
     @Transactional

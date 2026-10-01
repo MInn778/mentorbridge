@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -89,6 +90,8 @@ public class FeedbackService {
                     1. 강점 분석
                     2. 개선이 필요한 부분 (첨부파일 내용을 구체적으로 인용해서)
                     3. 향후 학습 방향
+
+                    마무리 인사, 응원 메시지, "멘토의 한마디" 같은 코멘트는 추가하지 마세요.
                     """.formatted(title, content == null ? "" : content, extractedText);
         } else {
             prompt = """
@@ -97,6 +100,8 @@ public class FeedbackService {
                     1. 강점 분석
                     2. 개선이 필요한 부분
                     3. 향후 학습 방향
+
+                    마무리 인사, 응원 메시지, "멘토의 한마디" 같은 코멘트는 추가하지 마세요.
                     """.formatted(title, content == null ? "" : content);
         }
 
@@ -149,6 +154,33 @@ public class FeedbackService {
                 
         dto.setMentorFeedbacks(feedbacks);
         return dto;
+    }
+
+    @Transactional
+    public FeedbackPostDto regenerateAiFeedback(Integer id, String email) {
+        FeedbackPost post = feedbackPostRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Feedback Post not found"));
+
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean isAuthor = post.getAuthor().getId().equals(requester.getId());
+        if (!isAuthor) {
+            throw new AccessDeniedException("본인이 작성한 피드백 요청만 재생성할 수 있습니다.");
+        }
+
+        String extractedText = null;
+        if (post.getFileUrl() != null && post.getFileName() != null) {
+            String storedName = post.getFileUrl().substring(post.getFileUrl().lastIndexOf('/') + 1);
+            try (var in = Files.newInputStream(fileStorageService.resolve(storedName))) {
+                extractedText = fileTextExtractionService.extractText(in, post.getFileName());
+            } catch (IOException e) {
+                log.warn("첨부파일을 다시 읽지 못해 제목/본문만으로 AI 피드백을 재생성합니다 ({})", post.getFileName());
+            }
+        }
+
+        post.setAiFeedback(generateAiFeedback(post.getTitle(), post.getContent(), extractedText));
+        return mapToDto(feedbackPostRepository.save(post));
     }
 
     @Transactional

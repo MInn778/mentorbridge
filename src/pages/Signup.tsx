@@ -7,7 +7,6 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'MENTOR' | 'MENTEE'>('MENTEE');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,7 +21,7 @@ export default function Signup() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, role }),
+        body: JSON.stringify({ email, password, name, role: 'MENTEE' }),
       });
 
       const data = await response.json();
@@ -111,32 +110,9 @@ export default function Signup() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">역할</label>
-              <div className="mt-2 flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setRole('MENTEE')}
-                  className={`flex-1 py-2 px-4 rounded-xl border text-sm font-medium transition-colors ${
-                    role === 'MENTEE'
-                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  멘티로 가입
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('MENTOR')}
-                  className={`flex-1 py-2 px-4 rounded-xl border text-sm font-medium transition-colors ${
-                    role === 'MENTOR'
-                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  멘토로 가입
-                </button>
-              </div>
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm text-indigo-700">
+              멘토로 활동하고 싶으신가요? 가입 후 <span className="font-bold">멘토 시스템</span>에서 지원할 수 있어요.
+              (관리자 승인 후 멘토로 전환됩니다)
             </div>
 
             <div>

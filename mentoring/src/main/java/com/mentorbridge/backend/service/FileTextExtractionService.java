@@ -36,20 +36,30 @@ public class FileTextExtractionService {
     public String extractText(MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null) return null;
+        try {
+            return extractText(file.getInputStream(), filename);
+        } catch (Exception e) {
+            log.warn("파일 텍스트 추출 실패 ({}): {}", filename, e.getMessage());
+            return null;
+        }
+    }
+
+    public String extractText(InputStream in, String filename) {
+        if (filename == null) return null;
         String lower = filename.toLowerCase();
 
         try {
             String text;
             if (lower.endsWith(".pptx")) {
-                text = extractFromPptx(file.getInputStream());
+                text = extractFromPptx(in);
             } else if (lower.endsWith(".ppt")) {
-                text = extractFromPpt(file.getInputStream());
+                text = extractFromPpt(in);
             } else if (lower.endsWith(".docx")) {
-                text = extractFromDocx(file.getInputStream());
+                text = extractFromDocx(in);
             } else if (lower.endsWith(".doc")) {
-                text = extractFromDoc(file.getInputStream());
+                text = extractFromDoc(in);
             } else if (lower.endsWith(".pdf")) {
-                text = extractFromPdf(file.getInputStream());
+                text = extractFromPdf(in);
             } else {
                 log.info("지원하지 않는 파일 형식이라 텍스트 추출을 건너뜁니다: {}", filename);
                 return null;

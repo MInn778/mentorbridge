@@ -65,6 +65,11 @@ public class FeedbackController {
         return ResponseEntity.ok(feedbackService.getFeedbackPost(id, authentication.getName()));
     }
 
+    @PostMapping("/{id}/regenerate")
+    public ResponseEntity<FeedbackPostDto> regenerateAiFeedback(Authentication authentication, @PathVariable Integer id) {
+        return ResponseEntity.ok(feedbackService.regenerateAiFeedback(id, authentication.getName()));
+    }
+
     @PostMapping("/{id}/comment")
     public ResponseEntity<MentorFeedbackDto> addMentorFeedback(
             Authentication authentication,

@@ -34,8 +34,12 @@ public class GeminiService {
         return apiKey != null && !apiKey.isBlank();
     }
 
+    private static final int MAX_RETRIES = 2;
+    private static final long RETRY_DELAY_MS = 2000;
+
     /**
      * 실패 시 예외를 던지지 않고 null을 반환한다. 호출부에서 null이면 안내 문구로 대체해서 게시글 작성 자체는 막지 않는다.
+     * 503(모델 과부하)처럼 일시적인 오류는 짧게 재시도한다.
      */
     public String generateContent(String prompt) {
         if (!isConfigured()) {
@@ -43,32 +47,44 @@ public class GeminiService {
             return null;
         }
 
-        try {
-            Map<String, Object> body = Map.of(
-                    "contents", new Object[]{
-                            Map.of("parts", new Object[]{ Map.of("text", prompt) })
-                    }
-            );
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                Map<String, Object> body = Map.of(
+                        "contents", new Object[]{
+                                Map.of("parts", new Object[]{ Map.of("text", prompt) })
+                        }
+                );
 
-            HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT + "?key=" + apiKey))
-                    .timeout(Duration.ofSeconds(30))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
-                    .build();
+                HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT + "?key=" + apiKey))
+                        .timeout(Duration.ofSeconds(30))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
+                        .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
-            if (response.statusCode() != 200) {
-                log.warn("Gemini API 호출 실패: HTTP {} - {}", response.statusCode(), response.body());
+                if (response.statusCode() == 503 && attempt < MAX_RETRIES) {
+                    log.warn("Gemini API가 일시적으로 과부하 상태입니다 ({}번째 재시도 예정): {}", attempt + 1, response.body());
+                    Thread.sleep(RETRY_DELAY_MS);
+                    continue;
+                }
+
+                if (response.statusCode() != 200) {
+                    log.warn("Gemini API 호출 실패: HTTP {} - {}", response.statusCode(), response.body());
+                    return null;
+                }
+
+                JsonNode root = objectMapper.readTree(response.body());
+                JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
+                return textNode.isMissingNode() ? null : textNode.asText();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            } catch (Exception e) {
+                log.error("Gemini API 호출 중 오류가 발생했습니다.", e);
                 return null;
             }
-
-            JsonNode root = objectMapper.readTree(response.body());
-            JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-            return textNode.isMissingNode() ? null : textNode.asText();
-        } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류가 발생했습니다.", e);
-            return null;
         }
+        return null;
     }
 }
