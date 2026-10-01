@@ -19,6 +19,10 @@ spring:
         format_sql: true
         default_batch_fetch_size: 1000
     show-sql: true
+    # SSE 알림 구독(/api/notifications/subscribe)이 최대 1시간 열려 있는 요청인데, open-in-view가 켜져 있으면
+    # 그 요청 하나하나가 DB 커넥션을 물고 있다가 풀(기본 10개)을 전부 고갈시킨다.
+    # 모든 컨트롤러가 이미 DTO로 변환해서 응답하므로(지연 로딩을 뷰 단계에서 쓰는 곳 없음) 꺼도 안전하다.
+    open-in-view: false
   h2:
     console:
       enabled: true
