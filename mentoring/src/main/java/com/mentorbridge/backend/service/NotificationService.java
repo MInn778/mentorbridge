@@ -27,28 +27,27 @@ public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1 hour
-    private final Map<Integer, SseEmitter> emitters = new ConcurrentHashMap<>();
+    // key = email. subscribe()에서 DB를 조회하면 open-in-view 때문에 그 DB 커넥션이 SSE가 끝날 때까지(최대 1시간)
+    // 반납되지 않아 커넥션 풀(10개)이 금방 고갈된다. JWT에 이미 있는 email을 키로 써서 DB 조회 자체를 없앤다.
+    private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
     public SseEmitter subscribe(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Integer userId = user.getId();
-
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
-        emitters.put(userId, emitter);
+        emitters.put(email, emitter);
 
-        emitter.onCompletion(() -> emitters.remove(userId));
-        emitter.onTimeout(() -> emitters.remove(userId));
-        emitter.onError((e) -> emitters.remove(userId));
+        // remove(key, value): 같은 사용자가 새로 연결한 emitter까지 지우지 않도록
+        emitter.onCompletion(() -> emitters.remove(email, emitter));
+        emitter.onTimeout(() -> emitters.remove(email, emitter));
+        emitter.onError((e) -> emitters.remove(email, emitter));
 
         // Send a dummy event to prevent 503 error for no events
         try {
             emitter.send(SseEmitter.event().name("connect").data("Connected to SSE"));
         } catch (IOException e) {
-            emitters.remove(userId);
+            emitters.remove(email, emitter);
         }
 
         return emitter;
@@ -91,12 +90,12 @@ public class NotificationService {
                 .createdAt(notification.getCreatedAt())
                 .build();
 
-        SseEmitter emitter = emitters.get(userId);
+        SseEmitter emitter = emitters.get(user.getEmail());
         if (emitter != null) {
             try {
                 emitter.send(SseEmitter.event().name("notification").data(dto));
             } catch (IOException e) {
-                emitters.remove(userId);
+                emitters.remove(user.getEmail(), emitter);
                 log.error("Failed to send SSE event for user " + userId, e);
             }
         }
