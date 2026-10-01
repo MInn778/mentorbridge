@@ -78,3 +78,5 @@ file:
 
 server:
   port: ${PORT:8080} # Render는 PORT 환경변수로 포트를 지정함
+  # Render 프록시가 붙여주는 X-Forwarded-Proto(https)를 반영 - 없으면 구글 OAuth redirect_uri가 http://로 만들어져 거부됨
+  forward-headers-strategy: framework
