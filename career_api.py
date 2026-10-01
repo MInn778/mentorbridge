@@ -1,9 +1,11 @@
-# python career_api.py  (runs on :8080, matches vite's /api proxy target)
+# 로컬 실행: python career_api.py (포트는 PORT 환경변수, 기본 8080)
+# 배포(Render): gunicorn career_api:app --bind 0.0.0.0:$PORT
 
 import os
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from google import genai
 
@@ -12,11 +14,15 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=API_KEY.strip()) if API_KEY else None
 MODEL = "gemini-3-flash-preview"
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 
-embeddings = HuggingFaceEmbeddings(model_name="jhgan/ko-sroberta-multitask", model_kwargs={"device": "cpu"})
-db = Chroma(persist_directory="career_db_free", embedding_function=embeddings)
+# 로컬 PyTorch 임베딩 모델 대신 Gemini 임베딩 API를 쓴다 (career_db.py와 반드시 동일한 방식이어야
+# 벡터 공간이 일치한다). Render 무료 플랜(512MB RAM)에서 PyTorch+transformers를 못 올리기 때문.
+embeddings = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=API_KEY) if API_KEY else None
+db = Chroma(persist_directory="career_db_free", embedding_function=embeddings) if embeddings else None
 
 app = Flask(__name__)
+CORS(app)
 
 
 @app.route("/api/career/recommend", methods=["POST"])
@@ -26,7 +32,7 @@ def recommend():
 
     answers = request.get_json(force=True) or {}
     query = " ".join(str(v) for v in answers.values() if v)
-    docs = db.similarity_search(query, k=5) if query else []
+    docs = db.similarity_search(query, k=5) if (db and query) else []
     context = "\n\n".join(d.page_content for d in docs)
 
     prompt = f"""당신은 전문 커리어 멘토입니다. 아래 커리어넷 실제 데이터를 참고하여 사용자에게 IT 진로를 추천해주세요.
@@ -55,5 +61,10 @@ def recommend():
     })
 
 
+@app.route("/api/career/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "db_loaded": db is not None})
+
+
 if __name__ == "__main__":
-    app.run(port=8080, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)

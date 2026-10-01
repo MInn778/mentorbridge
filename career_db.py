@@ -1,13 +1,16 @@
 import json
 import os
 import shutil
+import time
 from dotenv import load_dotenv
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 
 load_dotenv()
+
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 
 def create_career_vector_db():
@@ -98,18 +101,51 @@ def create_career_vector_db():
         shutil.rmtree(db_folder)
         print("기존 career_db_free 삭제 완료")
 
-    print("임베딩 모델 로드 중...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name="jhgan/ko-sroberta-multitask",
-        model_kwargs={"device": "cpu"}
-    )
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("에러: GOOGLE_API_KEY(또는 GEMINI_API_KEY)가 설정되어 있지 않습니다.")
+        return
+
+    # 로컬 PyTorch 임베딩 모델(jhgan/ko-sroberta-multitask) 대신 Gemini 임베딩 API를 쓴다.
+    # Render 무료 플랜(512MB RAM)에서는 PyTorch+transformers를 메모리에 올릴 수 없어서
+    # 임베딩 자체를 API 호출로 대체해 서버 쪽 메모리 사용량을 거의 없앤다.
+    print("임베딩 모델(Gemini API) 준비 중...")
+    embeddings = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, google_api_key=api_key)
 
     print("새 벡터 DB 생성 중...")
-    Chroma.from_documents(
-        documents=documents,
-        embedding=embeddings,
-        persist_directory=db_folder
-    )
+    # 한 배치에 넣는 문서가 많으면(특히 이 데이터처럼 문서 하나가 큰 경우) 요청 하나의 토큰 수가
+    # 무료 티어의 분당 토큰 제한을 넘어서 429가 난다. 배치를 작게 쪼개고, 그래도 429가 나면
+    # 지수 백오프로 재시도한다.
+    BATCH_SIZE = 3
+    MAX_RETRIES = 6
+    vectordb = None
+    total_batches = (len(documents) - 1) // BATCH_SIZE + 1
+    for i in range(0, len(documents), BATCH_SIZE):
+        batch = documents[i:i + BATCH_SIZE]
+        batch_no = i // BATCH_SIZE + 1
+        print(f"  배치 {batch_no}/{total_batches} ({len(batch)}개) 임베딩 중...")
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                if vectordb is None:
+                    vectordb = Chroma.from_documents(
+                        documents=batch,
+                        embedding=embeddings,
+                        persist_directory=db_folder
+                    )
+                else:
+                    vectordb.add_documents(batch)
+                break
+            except Exception as e:
+                if "RESOURCE_EXHAUSTED" in str(e) and attempt < MAX_RETRIES - 1:
+                    wait = 10 * (attempt + 1)
+                    print(f"    429 - {wait}초 대기 후 재시도 ({attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(wait)
+                else:
+                    raise
+
+        if i + BATCH_SIZE < len(documents):
+            time.sleep(2)
 
     print("\n완료! career_db_free가 새로 생성되었습니다.")
 

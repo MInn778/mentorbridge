@@ -9,7 +9,6 @@ coverage/
 !.env.example
 
 venv/
-career_db_free/
 __pycache__/
 *.pyc
 .vscode/
