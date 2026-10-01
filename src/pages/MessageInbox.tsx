@@ -99,12 +99,14 @@ export default function MessageInbox() {
                     message.messageType === 'SYSTEM' ? "bg-slate-200 text-slate-600" :
                     "bg-blue-100 text-blue-600"
                   )}>
-                    {message.messageType === 'APPLICATION' ? '지원서' : 
-                     message.messageType === 'SYSTEM' ? '시스템' : '일반 쪽지'}
+                    {message.messageType === 'APPLICATION' ? '지원서' :
+                     message.messageType === 'SYSTEM' ? '시스템 알림' : '일반 쪽지'}
                   </span>
-                  <span className="font-bold text-slate-900">
-                    {message.messageType === 'SYSTEM' ? '시스템' : message.senderName}
-                  </span>
+                  {message.messageType !== 'SYSTEM' && (
+                    <span className="font-bold text-slate-900">
+                      {message.senderName}
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs text-slate-400">
                   {new Date(message.createdAt).toLocaleString()}

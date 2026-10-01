@@ -13,4 +13,5 @@ public interface MessageRepository extends JpaRepository<Message, Integer> {
     List<Message> findBySenderOrderByCreatedAtDesc(User sender);
     Optional<Message> findFirstBySenderAndRelatedGroupIdAndMessageTypeOrderByCreatedAtDesc(
             User sender, Integer relatedGroupId, MessageType messageType);
+    List<Message> findBySenderAndMessageTypeOrderByCreatedAtDesc(User sender, MessageType messageType);
 }

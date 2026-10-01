@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User as UserIcon, Bell, Mail, LogOut, Settings, UserCircle } from 'lucide-react';
+import { Menu, X, User as UserIcon, Bell, Mail, MessageCircle, LogOut, Settings, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -29,6 +29,7 @@ export default function Navbar() {
   const { user, token, logout, isAuthenticated } = useAuth();
   const { notifications, unreadCount, markAsRead } = useNotifications();
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -57,6 +58,14 @@ export default function Navbar() {
       .then(data => {
         const messages = Array.isArray(data) ? data : [];
         setUnreadMessageCount(messages.filter((m: any) => !m.isRead).length);
+      })
+      .catch(() => {});
+
+    fetch('/api/chat/rooms', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        const rooms = Array.isArray(data) ? data : [];
+        setUnreadChatCount(rooms.reduce((sum: number, r: any) => sum + (r.unreadCount || 0), 0));
       })
       .catch(() => {});
   }, [token, isAuthenticated, location.pathname]);
@@ -109,6 +118,18 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 relative">
+            {isAuthenticated && (
+              <Link
+                to="/chat"
+                className="p-2 text-slate-400 hover:text-blue-600 transition-colors hidden sm:block relative"
+              >
+                <MessageCircle size={20} />
+                {unreadChatCount > 0 && (
+                  <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                )}
+              </Link>
+            )}
+
             {isAuthenticated && (
               <Link
                 to="/messages"

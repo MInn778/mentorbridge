@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +43,10 @@ public class MessageService {
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
         User receiver = userRepository.findById(dto.getReceiverId())
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+        if (dto.getMessageType() == MessageType.APPLICATION && sender.getId().equals(receiver.getId())) {
+            throw new RuntimeException("본인이 작성한 게시글에는 지원할 수 없습니다.");
+        }
 
         if (dto.getMessageType() == MessageType.APPLICATION && dto.getRelatedGroupId() != null) {
             messageRepository.findFirstBySenderAndRelatedGroupIdAndMessageTypeOrderByCreatedAtDesc(
@@ -79,6 +85,23 @@ public class MessageService {
                         sender, relatedGroupId, MessageType.APPLICATION)
                 .map(this::mapToDto)
                 .orElse(null);
+    }
+
+    // 커뮤니티 목록 페이지에서 게시글마다 "지원하기"/"지원 취소하기"를 바로 보여주기 위해,
+    // 내가 보낸 지원서 중 게시글(relatedGroupId)별 가장 최신 상태만 모아서 반환한다.
+    @Transactional(readOnly = true)
+    public List<MessageDto> getMyApplications(String email) {
+        User sender = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Message> applications = messageRepository.findBySenderAndMessageTypeOrderByCreatedAtDesc(sender, MessageType.APPLICATION);
+
+        Map<Integer, Message> latestByGroup = new LinkedHashMap<>();
+        for (Message m : applications) {
+            latestByGroup.putIfAbsent(m.getRelatedGroupId(), m);
+        }
+
+        return latestByGroup.values().stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
     @Transactional
@@ -156,7 +179,7 @@ public class MessageService {
         Message systemMessage = Message.builder()
                 .sender(receiver) // In a real app, might be a 'System' user
                 .receiver(message.getSender())
-                .content("Your application to the group has been ACCEPTED.")
+                .content("스터디 참여 신청이 수락되었습니다.")
                 .messageType(MessageType.SYSTEM)
                 .relatedGroupId(message.getRelatedGroupId())
                 .build();
@@ -192,7 +215,7 @@ public class MessageService {
         Message systemMessage = Message.builder()
                 .sender(receiver)
                 .receiver(message.getSender())
-                .content("Your application to the group has been REJECTED.")
+                .content("스터디 참여 신청이 거절되었습니다.")
                 .messageType(MessageType.SYSTEM)
                 .relatedGroupId(message.getRelatedGroupId())
                 .build();

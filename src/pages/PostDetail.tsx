@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, MessageSquare, UserPlus, Send, Edit, Trash2, CheckCircle, RotateCcw, Flag } from 'lucide-react';
+import { Users, MessageSquare, UserPlus, Send, Edit, Trash2, CheckCircle, RotateCcw, Flag, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import UserPopover from '@/components/UserPopover';
 import ApplyModal from '@/components/ApplyModal';
@@ -147,6 +147,25 @@ export default function PostDetail() {
         setPost(await res.json());
       } else {
         alert('상태 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCreateGroupChat = async () => {
+    if (!post || !token) return;
+    try {
+      const res = await fetch(`/api/chat/rooms/from-post/${post.boardId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const room = await res.json();
+        navigate(`/chat/${room.id}`);
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.message || '단체 채팅방을 만들지 못했습니다.');
       }
     } catch (err) {
       console.error(err);
@@ -315,6 +334,16 @@ export default function PostDetail() {
                 {post.status === 'COMPLETED' ? <RotateCcw size={16} /> : <CheckCircle size={16} />}
                 {post.status === 'COMPLETED' ? '모집 재개' : '모집 완료'}
               </button>
+              {post.status === 'COMPLETED' && getCategory(post.boardType) !== '기타' && (
+                <button
+                  onClick={handleCreateGroupChat}
+                  title="참여 인원 전체와 단체 채팅방 시작"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors text-blue-600 bg-blue-50 hover:bg-blue-100"
+                >
+                  <MessageCircle size={16} />
+                  단체 채팅방 만들기
+                </button>
+              )}
               <button
                 onClick={() => navigate(`/community/write?editId=${post.boardId}`)}
                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"

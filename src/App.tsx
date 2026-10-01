@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PostDetail from './pages/PostDetail';
 import MessageInbox from './pages/MessageInbox';
+import Chat from './pages/Chat';
 import Notifications from './pages/Notifications';
 import OAuthCallback from './pages/OAuthCallback';
 import Admin from './pages/Admin';
@@ -48,6 +49,8 @@ export default function App() {
               <Route path="/profile/:userId" element={<Profile />} />
               <Route path="/community/:postId" element={<PostDetail />} />
               <Route path="/messages" element={<MessageInbox />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/chat/:roomId" element={<Chat />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/admin" element={<Admin />} />

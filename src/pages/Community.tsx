@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Plus, Users, MessageSquare, UserPlus } from 'lucide-react';
+import { Search, Plus, Users, MessageSquare, UserPlus, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ApplyModal from '@/components/ApplyModal';
 
@@ -51,8 +51,9 @@ export default function Community() {
   const [regionFilter, setRegionFilter] = useState('');
   const [timeSlotFilter, setTimeSlotFilter] = useState('');
   const [applyTarget, setApplyTarget] = useState<Post | null>(null);
+  const [myApplications, setMyApplications] = useState<Record<number, { id: number; status: 'PENDING' | 'ACCEPTED' | 'REJECTED' }>>({});
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   useEffect(() => {
     const headers: HeadersInit = {};
@@ -74,6 +75,23 @@ export default function Community() {
         }
       })
       .catch(err => console.error('Failed to fetch posts:', err));
+
+    if (token) {
+      fetch('/api/messages/my-applications', { headers })
+        .then(res => res.ok ? res.json() : [])
+        .then((data: any[]) => {
+          const map: Record<number, { id: number; status: 'PENDING' | 'ACCEPTED' | 'REJECTED' }> = {};
+          data.forEach(app => {
+            if (app.relatedGroupId != null) {
+              map[app.relatedGroupId] = { id: app.id, status: app.status };
+            }
+          });
+          setMyApplications(map);
+        })
+        .catch(err => console.error('Failed to fetch my applications:', err));
+    } else {
+      setMyApplications({});
+    }
   }, [token]);
 
   const getCategory = (boardType: string) => {
@@ -113,14 +131,42 @@ export default function Community() {
         })
       });
       if (res.ok) {
+        const created = await res.json();
+        setMyApplications(prev => ({ ...prev, [applyTarget.boardId]: { id: created.id, status: 'PENDING' } }));
         setApplyTarget(null);
         alert("지원이 완료되었습니다.");
       } else {
-        alert("지원에 실패했습니다.");
+        const data = await res.json().catch(() => null);
+        alert(data?.message || "지원에 실패했습니다.");
       }
     } catch (err) {
       console.error(err);
       alert("오류가 발생했습니다.");
+    }
+  };
+
+  const handleCancelApplication = async (e: React.MouseEvent, boardId: number) => {
+    e.stopPropagation();
+    const application = myApplications[boardId];
+    if (!application || !token) return;
+    if (!confirm("지원을 취소하시겠습니까?")) return;
+    try {
+      const res = await fetch(`/api/messages/${application.id}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMyApplications(prev => {
+          const next = { ...prev };
+          delete next[boardId];
+          return next;
+        });
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.message || "지원 취소에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -291,10 +337,21 @@ export default function Community() {
               </div>
             </div>
             
-            {getCategory(post.boardType) !== '기타' && (
+            {getCategory(post.boardType) !== '기타' && post.authorName !== user?.name && (
               post.status === 'COMPLETED' ? (
                 <button disabled className="w-full mt-4 flex items-center justify-center gap-2 bg-slate-200 text-slate-500 py-3 rounded-xl font-bold text-sm cursor-not-allowed">
                   모집 완료되었습니다
+                </button>
+              ) : myApplications[post.boardId]?.status === 'ACCEPTED' ? (
+                <button disabled className="w-full mt-4 flex items-center justify-center gap-2 bg-green-100 text-green-700 py-3 rounded-xl font-bold text-sm cursor-default">
+                  <CheckCircle size={16} /> 참여 중인 스터디입니다
+                </button>
+              ) : myApplications[post.boardId]?.status === 'PENDING' ? (
+                <button
+                  onClick={(e) => handleCancelApplication(e, post.boardId)}
+                  className="w-full mt-4 flex items-center justify-center gap-2 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <CheckCircle size={16} /> 지원 완료 · 취소하기
                 </button>
               ) : (
                 <button
