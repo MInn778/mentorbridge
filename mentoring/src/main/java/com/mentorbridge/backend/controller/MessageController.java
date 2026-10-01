@@ -29,6 +29,12 @@ public class MessageController {
         return ResponseEntity.ok(messageService.sendMessage(email, dto));
     }
 
+    @GetMapping("/my-applications")
+    public ResponseEntity<List<MessageDto>> getMyApplications() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(messageService.getMyApplications(email));
+    }
+
     @GetMapping("/application-status")
     public ResponseEntity<MessageDto> getApplicationStatus(@RequestParam Integer postId) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
