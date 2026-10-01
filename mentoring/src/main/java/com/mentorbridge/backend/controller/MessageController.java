@@ -29,6 +29,19 @@ public class MessageController {
         return ResponseEntity.ok(messageService.sendMessage(email, dto));
     }
 
+    @GetMapping("/application-status")
+    public ResponseEntity<MessageDto> getApplicationStatus(@RequestParam Integer postId) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(messageService.getApplicationStatus(email, postId));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelApplication(@PathVariable Integer id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        messageService.cancelApplication(email, id);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{id}/accept")
     public ResponseEntity<Void> acceptApplication(@PathVariable Integer id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

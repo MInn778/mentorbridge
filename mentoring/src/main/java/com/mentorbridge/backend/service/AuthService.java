@@ -32,11 +32,13 @@ public class AuthService {
             throw new RuntimeException("Email is already taken!");
         }
 
+        // 멘토/관리자 권한은 가입 시점에 바로 부여하지 않는다. 멘토는 가입 후 멘토 지원(mentor_request) ->
+        // 관리자 승인을 거쳐야 하므로, 가입 요청에 어떤 role이 담겨 오든 전부 무시하고 MENTEE로 고정한다.
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
-                .role(request.getRole())
+                .role(Role.MENTEE)
                 .build();
 
         userRepository.save(user);
