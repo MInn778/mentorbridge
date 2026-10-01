@@ -1,11 +1,12 @@
 package com.mentorbridge.backend.config;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.sql.DataSource;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -16,14 +17,15 @@ import java.nio.charset.StandardCharsets;
 public class DatabaseConfig {
 
     @Bean
-    public DataSource dataSource(DataSourceProperties props, @Value("${DATABASE_URL:}") String databaseUrl) {
+    @ConfigurationProperties("spring.datasource.hikari") // application.yml의 hikari 설정(leak-detection 등) 적용
+    public HikariDataSource dataSource(DataSourceProperties props, @Value("${DATABASE_URL:}") String databaseUrl) {
         if (!databaseUrl.isBlank()) {
             String[] parsed = toJdbc(databaseUrl);
             props.setUrl(parsed[0]);
             props.setUsername(parsed[1]);
             props.setPassword(parsed[2]);
         }
-        return props.initializeDataSourceBuilder().build();
+        return props.initializeDataSourceBuilder().type(HikariDataSource.class).build();
     }
 
     /** postgresql://user:pass@host[:port]/db?query -> {jdbcUrl, user, password} */

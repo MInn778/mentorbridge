@@ -9,6 +9,9 @@ spring:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:} # DATABASE_URL(Neon)을 쓰면 비워둬도 됨 - DatabaseConfig 참고
     # driver/dialect는 DB_URL(mysql/postgresql)을 보고 자동 선택
+    hikari:
+      # 커넥션을 60초 넘게 반납 안 하면 어디서 빌려갔는지 스택트레이스를 WARN 로그로 남김
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update # 서버 재시작 시 데이터가 날아가지 않도록 update로 변경합니다.
@@ -18,6 +21,9 @@ spring:
       hibernate:
         format_sql: true
         default_batch_fetch_size: 1000
+        # Spring 기본값(..._AND_HOLD)은 open-in-view와 합쳐져 요청이 끝날 때까지 커넥션을 붙잡는다.
+        # SSE처럼 오래 열린 요청이 커넥션 풀(10개)을 고갈시키지 않도록 트랜잭션이 끝나면 바로 반납한다.
+        connection.handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION
     show-sql: true
   h2:
     console:
