@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
       // best-effort: invalidate the refresh token server-side
-      fetch('http://localhost:8080/api/auth/logout', {
+      fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!refreshToken) return null;
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/reissue', {
+      const response = await fetch('/api/auth/reissue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const refreshTokenValue = localStorage.getItem('refreshToken');
       if (!refreshTokenValue) return response;
 
-      const reissueRes = await originalFetch('http://localhost:8080/api/auth/reissue', {
+      const reissueRes = await originalFetch('/api/auth/reissue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: refreshTokenValue }),

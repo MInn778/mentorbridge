@@ -1,6 +1,7 @@
 package com.mentorbridge.backend.config;
 
 import com.mentorbridge.backend.service.CustomUserDetailsService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -21,6 +22,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,6 +34,10 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
+
+    // Vercel rewrite로 프록시돼도 브라우저의 Origin(vercel 주소)이 그대로 전달되므로 허용 목록에 있어야 함
+    @Value("${app.frontend-url:}")
+    private String frontendUrl;
 
     // OAuth2LoginSuccessHandler -> AuthService -> AuthenticationManager 빈(이 클래스의 @Bean 메서드)이
     // 다시 SecurityConfig 인스턴스를 필요로 해서 순환 참조가 생김. @Lazy로 프록시를 주입해 끊는다.
@@ -94,7 +100,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", "http://0.0.0.0:3000")); // Vite default ports
+        List<String> origins = new ArrayList<>(List.of("http://localhost:3000", "http://localhost:5173", "http://0.0.0.0:3000")); // Vite default ports
+        Arrays.stream(frontendUrl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).forEach(origins::add);
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

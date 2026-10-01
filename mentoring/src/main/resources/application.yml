@@ -7,7 +7,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/mentoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:} # DATABASE_URL(Neon)을 쓰면 비워둬도 됨 - DatabaseConfig 참고
     # driver/dialect는 DB_URL(mysql/postgresql)을 보고 자동 선택
   jpa:
     hibernate:
@@ -59,6 +59,8 @@ jwt:
 app:
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
+  # 배포된 프론트(Vercel) 주소. 쉼표로 여러 개 가능 - CORS 허용 목록에 추가됨
+  frontend-url: ${FRONTEND_URL:}
 
 public-data:
   recruit-api-key: ${PUBLIC_DATA_RECRUIT_API_KEY:}
@@ -75,4 +77,4 @@ file:
   upload-dir: ${FILE_UPLOAD_DIR:uploads}
 
 server:
-  port: 8080
+  port: ${PORT:8080} # Render는 PORT 환경변수로 포트를 지정함

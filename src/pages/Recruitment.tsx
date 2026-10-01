@@ -33,7 +33,7 @@ export default function Recruitment() {
     setLoading(true);
     setError('');
     try {
-      const url = new URL('http://localhost:8080/api/jobs');
+      const url = new URL('/api/jobs', window.location.origin);
       if (search) url.searchParams.set('keyword', search);
 
       const response = await fetch(url.toString(), {
@@ -62,7 +62,7 @@ export default function Recruitment() {
   const toggleBookmark = async (job: Job) => {
     setJobs((prev) => prev.map((j) => (j.externalJobId === job.externalJobId ? { ...j, bookmarked: !j.bookmarked } : j)));
     try {
-      await fetch(`http://localhost:8080/api/jobs/${job.externalJobId}/bookmark`, {
+      await fetch(`/api/jobs/${job.externalJobId}/bookmark`, {
         method: job.bookmarked ? 'DELETE' : 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
