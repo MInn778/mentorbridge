@@ -23,6 +23,13 @@ public class MessageController {
         return ResponseEntity.ok(messageService.getInbox(email));
     }
 
+    @PostMapping("/read-all")
+    public ResponseEntity<Void> markAllAsRead() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        messageService.markAllAsRead(email);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping
     public ResponseEntity<MessageDto> sendMessage(@RequestBody MessageCreateDto dto) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

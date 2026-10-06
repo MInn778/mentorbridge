@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface MessageRepository extends JpaRepository<Message, Integer> {
     List<Message> findByReceiverOrderByCreatedAtDesc(User receiver);
+    List<Message> findByReceiverAndIsReadFalse(User receiver);
     List<Message> findBySenderOrderByCreatedAtDesc(User sender);
     Optional<Message> findFirstBySenderAndRelatedGroupIdAndMessageTypeOrderByCreatedAtDesc(
             User sender, Integer relatedGroupId, MessageType messageType);

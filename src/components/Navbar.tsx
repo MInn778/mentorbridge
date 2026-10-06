@@ -70,6 +70,13 @@ export default function Navbar() {
       .catch(() => {});
   }, [token, isAuthenticated, location.pathname]);
 
+  // 쪽지함에서 읽음 처리가 끝나면 바로 표시를 지운다. (위 fetch는 페이지 이동 시점에 돌아서 읽음 처리보다 먼저 끝날 수 있음)
+  useEffect(() => {
+    const clear = () => setUnreadMessageCount(0);
+    window.addEventListener('messages-read', clear);
+    return () => window.removeEventListener('messages-read', clear);
+  }, []);
+
   const navItems = user?.role === 'ADMIN'
     ? [...baseNavItems, { name: '관리자', path: '/admin' }]
     : baseNavItems;

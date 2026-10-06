@@ -37,6 +37,14 @@ public class MessageService {
                 .collect(Collectors.toList());
     }
 
+    // 쪽지함을 열면 받은 쪽지를 모두 읽음 처리한다. (이게 없어서 내비게이션의 안 읽음 표시가 사라지지 않았음)
+    @Transactional
+    public void markAllAsRead(String email) {
+        User receiver = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        messageRepository.findByReceiverAndIsReadFalse(receiver).forEach(m -> m.setIsRead(true));
+    }
+
     @Transactional
     public MessageDto sendMessage(String email, MessageCreateDto dto) {
         User sender = userRepository.findByEmail(email)

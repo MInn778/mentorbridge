@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { MessageSquare, Check, X } from 'lucide-react';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { MessageSquare, Check, X, Reply } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SendMessageModal from '@/components/SendMessageModal';
 
 interface Message {
   id: number;
@@ -20,8 +22,26 @@ interface Message {
 
 export default function MessageInbox() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [replyTo, setReplyTo] = useState<{ id: number; name: string } | null>(null);
   const { token } = useAuth();
+  const { notifications, markAsRead } = useNotifications();
   const navigate = useNavigate();
+
+  // 쪽지함을 열면 받은 쪽지와 "쪽지를 보냈습니다" 알림을 읽음 처리한다.
+  // 화면에는 방금 불러온 상태(안 읽음 강조)를 그대로 두고, 서버와 내비게이션 표시만 갱신한다.
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/messages/read-all', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => { if (res.ok) window.dispatchEvent(new Event('messages-read')); })
+      .catch(err => console.error(err));
+  }, [token]);
+
+  useEffect(() => {
+    notifications
+      .filter(n => n.type === 'MESSAGE' && !n.isRead)
+      .forEach(n => markAsRead(n.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications]);
 
   const fetchMessages = async () => {
     if (!token) return;
@@ -117,6 +137,17 @@ export default function MessageInbox() {
                 {message.content}
               </p>
 
+              {message.messageType === 'NORMAL' && (
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={() => setReplyTo({ id: message.senderId, name: message.senderName })}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors"
+                  >
+                    <Reply size={16} /> 답장
+                  </button>
+                </div>
+              )}
+
               {message.messageType === 'APPLICATION' && message.status === 'PENDING' && (
                 <div className="mt-6 flex gap-3">
                   <button 
@@ -148,6 +179,14 @@ export default function MessageInbox() {
           ))
         )}
       </div>
+
+      {replyTo && (
+        <SendMessageModal
+          receiverId={replyTo.id}
+          receiverName={replyTo.name}
+          onClose={() => setReplyTo(null)}
+        />
+      )}
     </div>
   );
 }
