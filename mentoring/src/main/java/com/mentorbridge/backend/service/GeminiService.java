@@ -42,6 +42,10 @@ public class GeminiService {
      * 503(모델 과부하)처럼 일시적인 오류는 짧게 재시도한다.
      */
     public String generateContent(String prompt) {
+        return generateContent(prompt, Duration.ofSeconds(30));
+    }
+
+    public String generateContent(String prompt, Duration timeout) {
         if (!isConfigured()) {
             log.info("GEMINI_API_KEY가 설정되지 않아 AI 피드백 생성을 건너뜁니다.");
             return null;
@@ -56,7 +60,7 @@ public class GeminiService {
                 );
 
                 HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT + "?key=" + apiKey))
-                        .timeout(Duration.ofSeconds(30))
+                        .timeout(timeout)
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
                         .build();
@@ -86,5 +90,46 @@ public class GeminiService {
             }
         }
         return null;
+    }
+
+    /**
+     * 검색 질문용 임베딩. build_career_index.py가 문서를 만든 것과 같은 모델/차원이어야 비교할 수 있다.
+     * 실패 시 null.
+     */
+    public float[] embedQuery(String text, String model, int dimension) {
+        if (!isConfigured()) {
+            return null;
+        }
+        try {
+            Map<String, Object> body = Map.of(
+                    "model", "models/" + model,
+                    "content", Map.of("parts", new Object[]{ Map.of("text", text) }),
+                    "taskType", "RETRIEVAL_QUERY",
+                    "outputDimensionality", dimension
+            );
+            HttpRequest request = HttpRequest.newBuilder(URI.create(
+                            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":embedContent?key=" + apiKey))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() != 200) {
+                log.warn("Gemini 임베딩 호출 실패: HTTP {} - {}", response.statusCode(), response.body());
+                return null;
+            }
+            JsonNode values = objectMapper.readTree(response.body()).path("embedding").path("values");
+            float[] vector = new float[values.size()];
+            for (int i = 0; i < vector.length; i++) {
+                vector[i] = (float) values.get(i).asDouble();
+            }
+            return vector;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            log.error("Gemini 임베딩 호출 중 오류가 발생했습니다.", e);
+            return null;
+        }
     }
 }
