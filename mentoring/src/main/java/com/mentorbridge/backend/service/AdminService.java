@@ -37,16 +37,6 @@ public class AdminService {
         return mapToDto(userRepository.save(user));
     }
 
-    @Transactional
-    public UserAdminDto promoteToAdmin(Integer userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        user.setRole(Role.ADMIN);
-        user.setIsSuspended(false);
-        return mapToDto(userRepository.save(user));
-    }
-
     private UserAdminDto mapToDto(User user) {
         return UserAdminDto.builder()
                 .userId(user.getId())

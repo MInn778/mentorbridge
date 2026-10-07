@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Target, Users, Briefcase, MessageSquare, ArrowRight, ExternalLink, ChevronDown, Pin, Megaphone, Check, X, CheckCircle2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Target, Users, Briefcase, MessageSquare, MessageCircle, ArrowRight, ExternalLink, ChevronDown, Pin, Megaphone, Check, X, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,7 @@ interface StudyGroup {
 interface Matching {
   matchingId: number;
   myRole: 'MENTEE' | 'MENTOR';
+  otherPartyUserId: number;
   otherPartyName: string;
   status: 'REQUESTED' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
   createdAt: string;
@@ -67,6 +68,7 @@ type TabKey = 'study' | 'mentoring' | 'feedback' | 'bookmark';
 export default function Dashboard() {
   const { notifications } = useNotifications();
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey | null>(null);
 
@@ -105,6 +107,17 @@ export default function Dashboard() {
   }, [token]);
 
   const toggleTab = (tab: TabKey) => setActiveTab(prev => (prev === tab ? null : tab));
+
+  // 진행 중인 멘토링 상대와 1:1 채팅방을 연다 (이미 방이 있으면 기존 방으로 이동)
+  const openChat = async (otherUserId: number) => {
+    const res = await fetch('/api/chat/rooms/direct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ targetUserId: otherUserId }),
+    });
+    if (res.ok) navigate(`/chat/${(await res.json()).id}`);
+    else alert('채팅방을 열지 못했습니다.');
+  };
 
   const respondToMatching = async (matchingId: number, action: 'accept' | 'reject' | 'complete') => {
     if (action === 'complete' && !confirm('이 멘토링을 완료 처리하시겠습니까?')) return;
@@ -218,6 +231,12 @@ export default function Dashboard() {
                         <span className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap bg-green-100 text-green-700">
                           {matchingStatusLabel[m.status]}
                         </span>
+                        <button
+                          onClick={() => openChat(m.otherPartyUserId)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors"
+                        >
+                          <MessageCircle size={14} /> 채팅하기
+                        </button>
                         <button
                           onClick={() => respondToMatching(m.matchingId, 'complete')}
                           className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"

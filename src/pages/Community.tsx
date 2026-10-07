@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Plus, Users, MessageSquare, UserPlus, CheckCircle } from 'lucide-react';
+import { Search, Plus, Users, MessageSquare, UserPlus, CheckCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ApplyModal from '@/components/ApplyModal';
 
@@ -99,6 +99,18 @@ export default function Community() {
     if (boardType === '프로젝트모집') return '프로젝트';
     if (boardType === '멘토모집' || boardType === '멘티모집') return '멘토 찾기';
     return '기타';
+  };
+
+  // 관리자는 목록에서 바로 게시글을 삭제(is_deleted 처리)할 수 있다
+  const handleAdminDelete = async (e: React.MouseEvent, post: Post) => {
+    e.stopPropagation();
+    if (!confirm(`관리자 권한으로 "${post.title}" 게시글을 삭제하시겠습니까?`)) return;
+    const res = await fetch(`/api/admin/posts/${post.boardId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setPosts(prev => prev.filter(p => p.boardId !== post.boardId));
+    else alert('삭제에 실패했습니다.');
   };
 
   const handleApply = (e: React.MouseEvent, post: Post) => {
@@ -292,9 +304,21 @@ export default function Community() {
                     {post.status === 'COMPLETED' ? '모집 완료' : '모집 중'}
                   </span>
                 </div>
-                <span className="text-xs text-slate-400">
-                  {new Date(post.createdAt).toLocaleDateString()}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-400">
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </span>
+                  {user?.role === 'ADMIN' && (
+                    <button
+                      onClick={(e) => handleAdminDelete(e, post)}
+                      title="관리자 삭제"
+                      aria-label="관리자 삭제"
+                      className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
               <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
                 {post.title}

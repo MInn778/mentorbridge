@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Users, UserCheck, FileText, Megaphone, Check, X, Trash2, Pin, Flag, ShieldCheck } from 'lucide-react';
+import { Users, UserCheck, Megaphone, Check, X, Trash2, Pin, Flag } from 'lucide-react';
 
 interface AdminUser {
   userId: number;
@@ -27,14 +27,6 @@ interface MentorRequest {
   requestedAt: string;
 }
 
-interface AdminPost {
-  boardId: number;
-  authorName: string;
-  boardType: string;
-  title: string;
-  createdAt: string;
-}
-
 interface Notice {
   id: number;
   authorName: string;
@@ -57,7 +49,8 @@ interface Report {
   processedAt: string | null;
 }
 
-type Tab = 'users' | 'mentors' | 'posts' | 'reports' | 'notices';
+// 게시글 관리는 게시판 화면에서 직접 한다 (Community/PostDetail의 관리자 삭제 버튼)
+type Tab = 'users' | 'mentors' | 'reports' | 'notices';
 
 export default function Admin() {
   const { token, user } = useAuth();
@@ -65,7 +58,6 @@ export default function Admin() {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [mentorRequests, setMentorRequests] = useState<MentorRequest[]>([]);
-  const [posts, setPosts] = useState<AdminPost[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [noticeForm, setNoticeForm] = useState({ title: '', content: '', isPinned: false });
@@ -74,7 +66,6 @@ export default function Admin() {
 
   const fetchUsers = () => fetch('/api/admin/users', { headers: authHeaders }).then(r => r.ok ? r.json() : []).then(setUsers);
   const fetchMentorRequests = () => fetch('/api/admin/mentor-requests', { headers: authHeaders }).then(r => r.ok ? r.json() : []).then(setMentorRequests);
-  const fetchPosts = () => fetch('/api/posts', { headers: authHeaders }).then(r => r.ok ? r.json() : []).then(setPosts);
   const fetchNotices = () => fetch('/api/notices', { headers: authHeaders }).then(r => r.ok ? r.json() : []).then(setNotices);
   const fetchReports = () => fetch('/api/admin/reports', { headers: authHeaders }).then(r => r.ok ? r.json() : []).then(setReports);
 
@@ -82,7 +73,6 @@ export default function Admin() {
     if (!token) return;
     fetchUsers();
     fetchMentorRequests();
-    fetchPosts();
     fetchNotices();
     fetchReports();
   }, [token]);
@@ -125,10 +115,11 @@ export default function Admin() {
     else alert('반려에 실패했습니다.');
   };
 
+  // 신고 관리에서 신고된 게시글을 바로 삭제할 때 사용
   const deletePost = async (boardId: number) => {
     if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
     const res = await fetch(`/api/admin/posts/${boardId}`, { method: 'DELETE', headers: authHeaders });
-    if (res.ok) fetchPosts();
+    if (res.ok) alert('삭제되었습니다.');
     else alert('삭제에 실패했습니다.');
   };
 
@@ -151,13 +142,6 @@ export default function Admin() {
     else alert('삭제에 실패했습니다.');
   };
 
-  const promoteToAdmin = async (u: AdminUser) => {
-    if (!confirm(`${u.name}님을 관리자로 지정하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
-    const res = await fetch(`/api/admin/users/${u.userId}/promote`, { method: 'PATCH', headers: authHeaders });
-    if (res.ok) fetchUsers();
-    else alert('처리에 실패했습니다.');
-  };
-
   const updateReport = async (reportId: number, status: '처리중' | '완료', processResult?: string) => {
     const res = await fetch(`/api/admin/reports/${reportId}`, {
       method: 'PATCH',
@@ -177,7 +161,6 @@ export default function Admin() {
   const tabs: { key: Tab; label: string; icon: typeof Users }[] = [
     { key: 'users', label: '사용자 관리', icon: Users },
     { key: 'mentors', label: '멘토 신청 심사', icon: UserCheck },
-    { key: 'posts', label: '게시글 관리', icon: FileText },
     { key: 'reports', label: '신고 관리', icon: Flag },
     { key: 'notices', label: '공지사항', icon: Megaphone },
   ];
@@ -189,7 +172,7 @@ export default function Admin() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
         <h1 className="text-3xl font-bold text-slate-900">관리자 페이지</h1>
-        <p className="text-slate-500 mt-2">사용자, 멘토 신청, 게시글, 공지사항을 관리합니다.</p>
+        <p className="text-slate-500 mt-2">사용자, 멘토 신청, 신고, 공지사항을 관리합니다. 게시글은 게시판에서 바로 삭제할 수 있습니다.</p>
       </header>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -247,12 +230,6 @@ export default function Admin() {
                     <td className="px-6 py-4 text-right">
                       {u.role !== 'ADMIN' && (
                         <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => promoteToAdmin(u)}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-800 hover:text-white transition-colors"
-                          >
-                            <ShieldCheck size={14} /> 관리자로 지정
-                          </button>
                           <button
                             onClick={() => toggleSuspend(u)}
                             className={cn(
@@ -319,39 +296,6 @@ export default function Admin() {
               </div>
             ))
           )}
-        </div>
-      )}
-
-      {tab === 'posts' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-xs">
-                <tr>
-                  <th className="text-left px-6 py-3 font-bold">제목</th>
-                  <th className="text-left px-6 py-3 font-bold">유형</th>
-                  <th className="text-left px-6 py-3 font-bold">작성자</th>
-                  <th className="text-left px-6 py-3 font-bold">작성일</th>
-                  <th className="text-right px-6 py-3 font-bold">관리</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {posts.map(p => (
-                  <tr key={p.boardId}>
-                    <td className="px-6 py-4 font-semibold text-slate-900 max-w-xs truncate">{p.title}</td>
-                    <td className="px-6 py-4 text-slate-500">{p.boardType}</td>
-                    <td className="px-6 py-4 text-slate-500">{p.authorName}</td>
-                    <td className="px-6 py-4 text-slate-400 text-xs">{new Date(p.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button onClick={() => deletePost(p.boardId)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
 

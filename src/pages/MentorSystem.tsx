@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Award, BookOpen, Briefcase, Star, MessageCircle, Plus, UserCog } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Award, BookOpen, Briefcase, Star, MessageCircle, Plus, UserCog, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MentorProfile {
@@ -18,7 +19,13 @@ export default function MentorSystem() {
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ intro: '', career: '', specs: '' });
+  // 응답이 오기 전 버튼을 다시 눌러 같은 요청이 두 번 가지 않도록 (백엔드도 409로 막음)
+  const [submitting, setSubmitting] = useState(false);
+  const [matchingId, setMatchingId] = useState<number | null>(null);
   const { token, user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  // 내가 멘티로 신청한 멘토들의 상태 (멘토 userId -> REQUESTED/ACCEPTED). 카드 버튼을 신청/대기/채팅으로 바꾸는 데 사용
+  const [myMentorStatus, setMyMentorStatus] = useState<Record<number, string>>({});
 
   const isMentor = user?.role === 'MENTOR';
   const myProfile = isMentor ? mentors.find(m => m.name === user?.name) : undefined;
@@ -35,9 +42,32 @@ export default function MentorSystem() {
     }
   };
 
+  const fetchMyMatchings = async () => {
+    if (!token) return setMyMentorStatus({});
+    const res = await fetch('/api/mentors/my-matchings', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const map: Record<number, string> = {};
+    (await res.json())
+      .filter((m: any) => m.myRole === 'MENTEE' && (m.status === 'REQUESTED' || m.status === 'ACCEPTED'))
+      .forEach((m: any) => { map[m.otherPartyUserId] = m.status; });
+    setMyMentorStatus(map);
+  };
+
   useEffect(() => {
     fetchMentors();
+    fetchMyMatchings();
   }, [token]);
+
+  // 진행 중인 멘토와 1:1 채팅방을 연다 (이미 방이 있으면 기존 방으로 이동)
+  const openChat = async (mentorUserId: number) => {
+    const res = await fetch('/api/chat/rooms/direct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ targetUserId: mentorUserId }),
+    });
+    if (res.ok) navigate(`/chat/${(await res.json()).id}`);
+    else alert('채팅방을 열지 못했습니다.');
+  };
 
   const openModal = () => {
     if (isMentor && myProfile) {
@@ -55,9 +85,11 @@ export default function MentorSystem() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthenticated) return alert('로그인이 필요합니다.');
+    if (submitting) return;
 
     const specsArray = form.specs.split(',').map(s => s.trim()).filter(Boolean);
 
+    setSubmitting(true);
     try {
       if (isMentor) {
         const res = await fetch('/api/mentors/profile', {
@@ -81,17 +113,24 @@ export default function MentorSystem() {
         if (res.ok) {
           alert('멘토 신청이 접수되었습니다. 관리자 심사 후 승인됩니다.');
           setShowModal(false);
+        } else if (res.status === 409) {
+          alert('이미 심사 중인 멘토 신청이 있습니다. 관리자 심사 결과를 기다려주세요.');
+          setShowModal(false);
         } else {
           alert('신청 중 오류가 발생했습니다.');
         }
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleRequestMatch = async (mentorId: number) => {
     if (!isAuthenticated) return alert('로그인이 필요합니다.');
+    if (matchingId !== null) return;
+    setMatchingId(mentorId);
     try {
       const res = await fetch(`/api/mentors/${mentorId}/match`, {
         method: 'POST',
@@ -101,11 +140,16 @@ export default function MentorSystem() {
       });
       if (res.ok) {
         alert('멘토링 신청이 완료되었습니다.');
+        fetchMyMatchings();
+      } else if (res.status === 409) {
+        alert('이미 신청했거나 진행 중인 멘토링입니다. 대시보드의 멘토링 탭에서 확인하세요.');
       } else {
         alert('신청 처리 중 오류가 발생했거나 본인에게 신청할 수 없습니다.');
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setMatchingId(null);
     }
   };
 
@@ -147,12 +191,29 @@ export default function MentorSystem() {
                   <span className="text-xs text-slate-400 font-normal">({mentor.reviewCount})</span>
                 </div>
 
-                <button
-                  onClick={() => handleRequestMatch(mentor.mentorId)}
-                  className="w-full mt-6 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors"
-                >
-                  <MessageCircle size={18} /> 멘토링 신청
-                </button>
+                {myMentorStatus[mentor.userId] === 'ACCEPTED' ? (
+                  <button
+                    onClick={() => openChat(mentor.userId)}
+                    className="w-full mt-6 flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-green-700 transition-colors"
+                  >
+                    <MessageCircle size={18} /> 채팅하기
+                  </button>
+                ) : myMentorStatus[mentor.userId] === 'REQUESTED' ? (
+                  <button
+                    disabled
+                    className="w-full mt-6 flex items-center justify-center gap-2 bg-slate-100 text-slate-500 py-3 rounded-xl font-bold text-sm cursor-not-allowed"
+                  >
+                    <Clock size={18} /> 승인 대기중
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleRequestMatch(mentor.mentorId)}
+                    disabled={matchingId === mentor.mentorId}
+                    className="w-full mt-6 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle size={18} /> 멘토링 신청
+                  </button>
+                )}
               </div>
 
               <div className="flex-1 p-8 space-y-8">
@@ -242,9 +303,10 @@ export default function MentorSystem() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors text-sm"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isMentor ? '저장하기' : '신청하기'}
+                  {submitting ? '처리 중...' : isMentor ? '저장하기' : '신청하기'}
                 </button>
               </div>
             </form>

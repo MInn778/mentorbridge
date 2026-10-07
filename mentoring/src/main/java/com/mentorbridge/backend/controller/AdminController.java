@@ -64,11 +64,6 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("/users/{userId}/promote")
-    public ResponseEntity<UserAdminDto> promoteToAdmin(@PathVariable Integer userId) {
-        return ResponseEntity.ok(adminService.promoteToAdmin(userId));
-    }
-
     @GetMapping("/reports")
     public ResponseEntity<List<PostReportDto>> getAllReports() {
         return ResponseEntity.ok(postReportService.getAllReports());

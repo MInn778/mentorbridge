@@ -10,7 +10,9 @@ import com.mentorbridge.backend.repository.MentorProfileRepository;
 import com.mentorbridge.backend.repository.MentorRequestRepository;
 import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -49,6 +51,14 @@ public class MentorService {
 
         if (user.getRole() == Role.ADMIN) {
             throw new RuntimeException("관리자 계정은 멘토 신청을 할 수 없습니다.");
+        }
+
+        // 버튼을 여러 번 누르거나 재신청해도 관리자에게 같은 신청이 쌓이지 않도록 (프론트는 409를 보고 안내)
+        if (user.getRole() == Role.MENTOR) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 멘토로 승인된 계정입니다.");
+        }
+        if (mentorRequestRepository.existsByUserIdAndStatus(user.getId(), RequestStatus.PENDING)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 심사 중인 멘토 신청이 있습니다.");
         }
 
         MentorRequest mentorRequest = MentorRequest.builder()
@@ -192,6 +202,12 @@ public class MentorService {
 
         if (mentee.getId().equals(mentor.getUser().getId())) {
             throw new RuntimeException("Cannot request mentoring to yourself");
+        }
+
+        // 같은 멘토에게 대기 중이거나 진행 중인 멘토링이 있으면 중복 신청/중복 알림을 막는다
+        if (mentorMatchingRepository.existsByMentorIdAndMenteeIdAndStatusIn(
+                mentor.getId(), mentee.getId(), List.of(MatchingStatus.REQUESTED, MatchingStatus.ACCEPTED))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 신청했거나 진행 중인 멘토링입니다.");
         }
 
         MentorMatching matching = MentorMatching.builder()

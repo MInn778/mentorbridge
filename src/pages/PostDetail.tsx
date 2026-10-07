@@ -172,10 +172,11 @@ export default function PostDetail() {
     }
   };
 
-  const handleDeletePost = async () => {
-    if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
+  // 작성자는 일반 삭제, 관리자는 남의 글도 관리자 삭제 API로 삭제 (둘 다 is_deleted 처리라 DB에는 남음)
+  const handleDeletePost = async (asAdmin = false) => {
+    if (!confirm(asAdmin ? "관리자 권한으로 이 게시글을 삭제하시겠습니까?" : "정말 이 게시글을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`/api/posts/${postId}`, {
+      const res = await fetch(asAdmin ? `/api/admin/posts/${postId}` : `/api/posts/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -351,12 +352,21 @@ export default function PostDetail() {
                 <Edit size={18} />
               </button>
               <button
-                onClick={handleDeletePost}
+                onClick={() => handleDeletePost()}
                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
                 <Trash2 size={18} />
               </button>
             </div>
+          )}
+
+          {!isAuthor && user?.role === 'ADMIN' && (
+            <button
+              onClick={() => handleDeletePost(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap text-red-600 bg-red-50 hover:bg-red-100 transition-colors shrink-0"
+            >
+              <Trash2 size={16} /> 관리자 삭제
+            </button>
           )}
         </div>
 
