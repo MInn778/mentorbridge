@@ -236,12 +236,24 @@ public class ChatService {
     @Transactional(readOnly = true)
     public List<UserSearchDto> searchUsers(String email, String query) {
         User me = getUser(email);
-        if (query == null || query.isBlank()) return List.of();
+        String q = query == null ? "" : query.trim();
 
-        return userRepository.findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(query.trim(), query.trim()).stream()
+        // 이메일 일부로 회원 목록을 훑어볼 수 없도록: 이메일은 전체가 정확히 일치할 때만, 이름은 2글자 이상부터
+        List<User> candidates;
+        if (q.contains("@")) {
+            candidates = userRepository.findByEmail(q).map(List::of).orElse(List.of());
+        } else if (q.length() >= 2) {
+            candidates = userRepository.findByNameContainingIgnoreCase(q);
+        } else {
+            return List.of();
+        }
+
+        return candidates.stream()
                 .filter(u -> !u.getId().equals(me.getId()))
+                .filter(u -> !Boolean.TRUE.equals(u.getIsSuspended()))
+                .filter(u -> u.getRole() != Role.ADMIN)
                 .limit(20)
-                .map(u -> UserSearchDto.builder().id(u.getId()).name(u.getName()).email(u.getEmail()).build())
+                .map(u -> UserSearchDto.builder().id(u.getId()).name(u.getName()).role(u.getRole().name()).build())
                 .collect(Collectors.toList());
     }
 

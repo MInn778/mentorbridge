@@ -8,6 +8,8 @@ import com.mentorbridge.backend.model.User;
 import com.mentorbridge.backend.repository.RefreshTokenRepository;
 import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +30,16 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse signup(SignupRequest request) {
+        String name = request.getName() == null ? "" : request.getName().trim();
+        if (name.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "닉네임을 입력해주세요.");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email is already taken!");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 이메일입니다.");
+        }
+        // 채팅 검색/게시글 작성자 표시 등에서 이름으로 사람을 구분하므로 닉네임은 중복 불가
+        if (userRepository.existsByName(name)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다.");
         }
 
         // 멘토/관리자 권한은 가입 시점에 바로 부여하지 않는다. 멘토는 가입 후 멘토 지원(mentor_request) ->
@@ -37,7 +47,7 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .name(request.getName())
+                .name(name)
                 .role(Role.MENTEE)
                 .build();
 
@@ -83,7 +93,7 @@ public class AuthService {
                 .orElseGet(() -> userRepository.save(User.builder()
                         .email(email)
                         .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 소셜 계정은 비밀번호 로그인을 쓰지 않음
-                        .name(name != null && !name.isBlank() ? name : email)
+                        .name(uniqueName(name != null && !name.isBlank() ? name.trim() : email))
                         .role(Role.MENTEE)
                         .build()));
 
@@ -92,6 +102,15 @@ public class AuthService {
         }
 
         return issueTokens(user);
+    }
+
+    // 구글 로그인은 구글 계정 이름을 그대로 닉네임으로 쓰므로, 겹치면 "홍길동2", "홍길동3"처럼 번호를 붙인다
+    private String uniqueName(String base) {
+        String candidate = base;
+        for (int n = 2; userRepository.existsByName(candidate); n++) {
+            candidate = base + n;
+        }
+        return candidate;
     }
 
     @Transactional

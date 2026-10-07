@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 interface UserSearchResult {
   id: number;
   name: string;
-  email: string;
+  role: 'MENTOR' | 'MENTEE';
 }
 
 interface NewChatModalProps {
@@ -181,7 +181,7 @@ export default function NewChatModal({ onClose, onCreated, existingRoomId }: New
           )}
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">이름 또는 이메일로 검색</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">이름(2글자 이상) 또는 정확한 이메일로 검색</label>
             <div className="relative">
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -196,7 +196,9 @@ export default function NewChatModal({ onClose, onCreated, existingRoomId }: New
 
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {results.length === 0 && query.trim() && (
-              <p className="text-sm text-slate-400 text-center py-4">검색 결과가 없습니다.</p>
+              <p className="text-sm text-slate-400 text-center py-4">
+                {!query.includes('@') && query.trim().length < 2 ? '이름은 2글자 이상 입력해주세요.' : '검색 결과가 없습니다.'}
+              </p>
             )}
             {results.map((u) => {
               const isSelected = selected.some((s) => s.id === u.id);
@@ -209,7 +211,7 @@ export default function NewChatModal({ onClose, onCreated, existingRoomId }: New
                 >
                   <div>
                     <p className="text-sm font-bold text-slate-900">{u.name}</p>
-                    <p className="text-xs text-slate-400">{u.email}</p>
+                    <p className="text-xs text-slate-400">{u.role === 'MENTOR' ? '멘토' : '멘티'}</p>
                   </div>
                   {mode === 'group' && isSelected && (
                     <span className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
