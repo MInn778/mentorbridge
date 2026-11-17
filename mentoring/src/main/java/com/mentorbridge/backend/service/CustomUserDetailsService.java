@@ -22,9 +22,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
+        // 정지된 계정은 enabled=false -> JwtUtil.validateToken이 거부해서, 정지 전에 받은 토큰(HTTP/SSE/STOMP)도 바로 막힌다
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
+                !Boolean.TRUE.equals(user.getIsSuspended()), true, true, true,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
     }

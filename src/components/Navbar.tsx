@@ -61,14 +61,27 @@ export default function Navbar() {
       })
       .catch(() => {});
 
-    fetch('/api/chat/rooms', { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        const rooms = Array.isArray(data) ? data : [];
-        setUnreadChatCount(rooms.reduce((sum: number, r: any) => sum + (r.unreadCount || 0), 0));
-      })
-      .catch(() => {});
   }, [token, isAuthenticated, location.pathname]);
+
+  // 채팅 안 읽음 표시: 페이지 이동, 새 알림 도착(unreadCount 변화), 채팅방 읽음 처리(chat-read) 때마다 다시 센다
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setUnreadChatCount(0);
+      return;
+    }
+    const refresh = () => {
+      fetch('/api/chat/rooms', { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          const rooms = Array.isArray(data) ? data : [];
+          setUnreadChatCount(rooms.reduce((sum: number, r: any) => sum + (r.unreadCount || 0), 0));
+        })
+        .catch(() => {});
+    };
+    refresh();
+    window.addEventListener('chat-read', refresh);
+    return () => window.removeEventListener('chat-read', refresh);
+  }, [token, isAuthenticated, location.pathname, unreadCount]);
 
   // 쪽지함에서 읽음 처리가 끝나면 바로 표시를 지운다. (위 fetch는 페이지 이동 시점에 돌아서 읽음 처리보다 먼저 끝날 수 있음)
   useEffect(() => {

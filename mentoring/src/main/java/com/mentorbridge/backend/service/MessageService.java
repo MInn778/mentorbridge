@@ -9,7 +9,9 @@ import com.mentorbridge.backend.repository.StudyGroupRepository;
 import com.mentorbridge.backend.repository.StudyMemberRepository;
 import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
@@ -51,6 +53,10 @@ public class MessageService {
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
         User receiver = userRepository.findById(dto.getReceiverId())
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+        if (Boolean.TRUE.equals(receiver.getIsSuspended())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "정지된 사용자입니다.");
+        }
 
         if (dto.getMessageType() == MessageType.APPLICATION && sender.getId().equals(receiver.getId())) {
             throw new RuntimeException("본인이 작성한 게시글에는 지원할 수 없습니다.");

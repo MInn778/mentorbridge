@@ -66,7 +66,7 @@ const matchingStatusLabel: Record<Matching['status'], string> = {
 type TabKey = 'study' | 'mentoring' | 'feedback' | 'bookmark';
 
 export default function Dashboard() {
-  const { notifications } = useNotifications();
+  const { notifications, markAsRead } = useNotifications();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -77,6 +77,7 @@ export default function Dashboard() {
   const [myFeedback, setMyFeedback] = useState<FeedbackPost[]>([]);
   const [myBookmarks, setMyBookmarks] = useState<Bookmark[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [activities, setActivities] = useState<{ id: number; title: string; endDate: string | null }[]>([]);
 
   const fetchMatchings = () => {
     if (!token) return;
@@ -104,7 +105,17 @@ export default function Dashboard() {
     fetch('/api/feedback/my', { headers }).then(res => (res.ok ? res.json() : [])).then(setMyFeedback).catch(() => {});
     fetch('/api/jobs/bookmarks', { headers }).then(res => (res.ok ? res.json() : [])).then(setMyBookmarks).catch(() => {});
     fetch('/api/notices', { headers }).then(res => (res.ok ? res.json() : [])).then(setNotices).catch(() => {});
+    fetch('/api/activities', { headers }).then(res => (res.ok ? res.json() : [])).then(setActivities).catch(() => {});
   }, [token]);
+
+  // 추천 공모전: 공모전 & 활동에 등록된 글 중 아직 마감 안 된 것을 마감 임박 순으로 2개
+  const today = new Date(new Date().toDateString());
+  const deadlineActivities = activities
+    .filter(a => a.endDate)
+    .map(a => ({ ...a, dday: Math.round((new Date(a.endDate + 'T00:00:00').getTime() - today.getTime()) / 86400000) }))
+    .filter(a => a.dday >= 0)
+    .sort((a, b) => a.dday - b.dday)
+    .slice(0, 2);
 
   const toggleTab = (tab: TabKey) => setActiveTab(prev => (prev === tab ? null : tab));
 
@@ -321,13 +332,14 @@ export default function Dashboard() {
               ) : (
                 notifications.slice(0, 5).map((activity) => (
                   <div key={activity.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                    {/* 안 읽은 알림에만 파란 점 (읽은 알림은 자리만 비워둬서 정렬 유지) */}
                     <div className={cn(
                       "mt-1.5 h-2 w-2 rounded-full shrink-0",
-                      activity.isRead ? "bg-slate-300" : "bg-blue-500"
+                      activity.isRead ? "invisible" : "bg-blue-500"
                     )} />
                     <div className="flex-1">
                       {activity.link ? (
-                        <Link to={activity.link} className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline block line-clamp-2">
+                        <Link to={activity.link} onClick={() => markAsRead(activity.id)} className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline block line-clamp-2">
                           {activity.title}
                         </Link>
                       ) : (
@@ -373,14 +385,15 @@ export default function Dashboard() {
           <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 mb-4">추천 공모전</h2>
             <div className="space-y-4">
-              {[
-                { title: '2024 대학생 IT 연합 해커톤', dday: 'D-12' },
-                { title: '삼성전자 오픈소스 경진대회', dday: 'D-5' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl">
+              {deadlineActivities.length === 0 ? (
+                <p className="text-center text-sm text-slate-500 py-4">마감 예정인 공모전이 없습니다.</p>
+              ) : deadlineActivities.map(item => (
+                <Link key={item.id} to="/activities" className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-slate-50 transition-colors">
                   <span className="text-sm font-medium text-slate-700 truncate mr-2">{item.title}</span>
-                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md whitespace-nowrap">{item.dday}</span>
-                </div>
+                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md whitespace-nowrap">
+                    {item.dday === 0 ? 'D-Day' : `D-${item.dday}`}
+                  </span>
+                </Link>
               ))}
             </div>
           </section>

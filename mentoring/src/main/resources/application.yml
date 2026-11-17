@@ -29,14 +29,6 @@ spring:
     console:
       enabled: true
       path: /h2-console
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope: email, profile
   servlet:
     multipart:
       max-file-size: 20MB
@@ -63,12 +55,12 @@ jwt:
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:1209600000} # 14일
 
 app:
-  oauth2:
-    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
   # 배포된 프론트(Vercel) 주소. 쉼표로 여러 개 가능 - CORS 허용 목록에 추가됨
   frontend-url: ${FRONTEND_URL:}
 
 public-data:
+  # 한국콘텐츠진흥원 지원사업공고 API 키 (선택) - 있으면 공모전 & 활동에 자동 등록
+  kocca-api-key: ${KOCCA_API_KEY:}
   recruit-api-key: ${PUBLIC_DATA_RECRUIT_API_KEY:}
 
 app-gemini:

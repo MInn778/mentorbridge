@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { Client, IMessage } from '@stomp/stompjs';
 import { createChatClient } from '@/lib/chatSocket';
 import { MessageCircle, Plus, Send, Users, UserPlus, Wifi, WifiOff } from 'lucide-react';
@@ -10,6 +11,7 @@ import NewChatModal from '@/components/NewChatModal';
 interface ChatParticipant {
   id: number;
   name: string;
+  suspended: boolean;
 }
 
 interface ChatMessage {
@@ -34,6 +36,7 @@ interface ChatRoom {
 
 export default function Chat() {
   const { token, user } = useAuth();
+  const { notifications, markAsRead } = useNotifications();
   const navigate = useNavigate();
   const { roomId: roomIdParam } = useParams();
   const activeRoomId = roomIdParam ? Number(roomIdParam) : null;
@@ -52,6 +55,17 @@ export default function Chat() {
   activeRoomIdRef.current = activeRoomId;
 
   const activeRoom = rooms.find((r) => r.id === activeRoomId) || null;
+  // 1:1 방의 상대가 관리자에게 정지된 사용자면 입력을 막는다 (서버도 403으로 막음)
+  const partnerSuspended = !!activeRoom && !activeRoom.isGroup && activeRoom.participants.some((p) => p.suspended);
+
+  // 보고 있는 방의 채팅 알림은 바로 읽음 처리해서 종 아이콘 표시가 남지 않게 한다
+  useEffect(() => {
+    if (!activeRoomId) return;
+    notifications
+      .filter((n) => !n.isRead && n.link === `/chat/${activeRoomId}`)
+      .forEach((n) => markAsRead(n.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications, activeRoomId]);
 
   const fetchRooms = useCallback(async () => {
     if (!token) return [];
@@ -130,6 +144,7 @@ export default function Chat() {
     if (!token) return;
     try {
       await fetch(`/api/chat/rooms/${roomId}/read`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      window.dispatchEvent(new Event('chat-read')); // 내비게이션의 채팅 안 읽음 표시 갱신
     } catch (err) {
       console.error(err);
     }
@@ -269,7 +284,10 @@ export default function Chat() {
             <>
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-slate-900">{activeRoom.name}</p>
+                  <p className="font-bold text-slate-900">
+                    {activeRoom.name}
+                    {partnerSuspended && <span className="ml-2 text-xs font-bold text-red-600">정지된 사용자</span>}
+                  </p>
                   {activeRoom.isGroup && (
                     <p className="text-xs text-slate-400">
                       {activeRoom.participants.map((p) => p.name).join(', ')}
@@ -311,16 +329,22 @@ export default function Chat() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {partnerSuspended && (
+                <div className="px-4 py-2.5 bg-red-50 text-red-600 text-sm font-bold text-center border-t border-red-100">
+                  정지된 사용자입니다. 메시지를 보낼 수 없습니다.
+                </div>
+              )}
               <form onSubmit={handleSend} className="p-4 border-t border-slate-100 flex gap-2">
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="메시지를 입력하세요..."
-                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900"
+                  disabled={partnerSuspended}
+                  placeholder={partnerSuspended ? '정지된 사용자와는 대화할 수 없습니다.' : '메시지를 입력하세요...'}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 disabled:cursor-not-allowed"
                 />
                 <button
                   type="submit"
-                  disabled={!draft.trim()}
+                  disabled={!draft.trim() || partnerSuspended}
                   className="flex items-center justify-center w-11 h-11 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
                 >
                   <Send size={18} />

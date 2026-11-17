@@ -4,7 +4,6 @@ import com.mentorbridge.backend.service.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -32,23 +31,14 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final CustomUserDetailsService userDetailsService;
-    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
-    private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
     // Vercel rewrite로 프록시돼도 브라우저의 Origin(vercel 주소)이 그대로 전달되므로 허용 목록에 있어야 함
     @Value("${app.frontend-url:}")
     private String frontendUrl;
 
-    // OAuth2LoginSuccessHandler -> AuthService -> AuthenticationManager 빈(이 클래스의 @Bean 메서드)이
-    // 다시 SecurityConfig 인스턴스를 필요로 해서 순환 참조가 생김. @Lazy로 프록시를 주입해 끊는다.
-    public SecurityConfig(JwtFilter jwtFilter,
-                           CustomUserDetailsService userDetailsService,
-                           @Lazy OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
-                           HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository) {
+    public SecurityConfig(JwtFilter jwtFilter, CustomUserDetailsService userDetailsService) {
         this.jwtFilter = jwtFilter;
         this.userDetailsService = userDetailsService;
-        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
-        this.cookieAuthorizationRequestRepository = cookieAuthorizationRequestRepository;
     }
 
     @Bean
@@ -57,7 +47,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/h2-console/**", "/error", "/oauth2/**", "/login/oauth2/**", "/ws-chat/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/h2-console/**", "/error", "/ws-chat/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -65,12 +55,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .oauth2Login(oauth2 -> oauth2
-                        .authorizationEndpoint(endpoint -> endpoint.authorizationRequestRepository(cookieAuthorizationRequestRepository))
-                        .successHandler(oAuth2LoginSuccessHandler))
-                // oauth2Login()을 켜면 Spring이 기본 AuthenticationEntryPoint를
-                // "구글 로그인 페이지로 리다이렉트"로 바꿔버려서, 토큰 없는 /api/** 요청까지
-                // 구글로 튕겨나가 버림(CORS 에러 발생). API는 그냥 401을 반환하도록 분리한다.
+                // 토큰 없는/만료된 /api/** 요청은 403이 아니라 401로 응답해서 프론트가 토큰 재발급을 시도하게 한다
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                         (request, response, authException) -> response.sendError(401, "Unauthorized"),
                         new AntPathRequestMatcher("/api/**")

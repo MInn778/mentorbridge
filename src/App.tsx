@@ -18,7 +18,6 @@ import PostDetail from './pages/PostDetail';
 import MessageInbox from './pages/MessageInbox';
 import Chat from './pages/Chat';
 import Notifications from './pages/Notifications';
-import OAuthCallback from './pages/OAuthCallback';
 import Admin from './pages/Admin';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -52,7 +51,6 @@ export default function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:roomId" element={<Chat />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/admin" element={<Admin />} />
             </Routes>
           </main>

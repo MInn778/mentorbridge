@@ -143,6 +143,8 @@ export default function MentorSystem() {
         fetchMyMatchings();
       } else if (res.status === 409) {
         alert('이미 신청했거나 진행 중인 멘토링입니다. 대시보드의 멘토링 탭에서 확인하세요.');
+      } else if (res.status === 403) {
+        alert('정지된 사용자입니다.');
       } else {
         alert('신청 처리 중 오류가 발생했거나 본인에게 신청할 수 없습니다.');
       }

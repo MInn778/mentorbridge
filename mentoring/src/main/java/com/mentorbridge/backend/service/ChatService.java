@@ -15,6 +15,8 @@ import com.mentorbridge.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -176,8 +178,8 @@ public class ChatService {
         Pageable pageable = PageRequest.of(0, pageSize);
 
         List<ChatMessage> page = beforeId == null
-                ? chatMessageRepository.findByChatRoom_IdOrderByCreatedAtDesc(roomId, pageable)
-                : chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByCreatedAtDesc(roomId, beforeId, pageable);
+                ? chatMessageRepository.findByChatRoom_IdOrderByIdDesc(roomId, pageable)
+                : chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(roomId, beforeId, pageable);
 
         Collections.reverse(page);
         return page.stream().map(this::toMessageDto).collect(Collectors.toList());
@@ -192,6 +194,13 @@ public class ChatService {
         User sender = getUser(email);
         ChatRoom room = getRoomChecked(roomId);
         ChatRoomMember membership = requireMember(email, room);
+
+        // 1:1 채팅방 상대가 정지된 사용자면 대화를 막는다 (단체방은 나머지 인원끼리 계속 대화 가능)
+        List<ChatRoomMember> members = chatRoomMemberRepository.findByChatRoom_Id(roomId);
+        if (!Boolean.TRUE.equals(room.getIsGroup())
+                && members.stream().anyMatch(m -> Boolean.TRUE.equals(m.getUser().getIsSuspended()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "정지된 사용자입니다.");
+        }
 
         ChatMessage message = chatMessageRepository.save(ChatMessage.builder()
                 .chatRoom(room)
@@ -209,7 +218,6 @@ public class ChatService {
                 ? (room.getName() != null ? room.getName() : "단체 채팅방")
                 : sender.getName();
 
-        List<ChatRoomMember> members = chatRoomMemberRepository.findByChatRoom_Id(roomId);
         for (ChatRoomMember m : members) {
             if (!m.getUser().getId().equals(sender.getId())) {
                 notificationService.sendNotification(
@@ -228,7 +236,7 @@ public class ChatService {
         ChatRoom room = getRoomChecked(roomId);
         ChatRoomMember membership = requireMember(email, room);
 
-        chatMessageRepository.findFirstByChatRoom_IdOrderByCreatedAtDesc(roomId)
+        chatMessageRepository.findFirstByChatRoom_IdOrderByIdDesc(roomId)
                 .ifPresent(last -> membership.setLastReadMessageId(last.getId()));
         chatRoomMemberRepository.save(membership);
     }
@@ -275,7 +283,8 @@ public class ChatService {
         List<ChatRoomMember> members = chatRoomMemberRepository.findByChatRoom_Id(room.getId());
 
         List<ChatParticipantDto> participants = members.stream()
-                .map(m -> ChatParticipantDto.builder().id(m.getUser().getId()).name(m.getUser().getName()).build())
+                .map(m -> ChatParticipantDto.builder().id(m.getUser().getId()).name(m.getUser().getName())
+                        .suspended(Boolean.TRUE.equals(m.getUser().getIsSuspended())).build())
                 .collect(Collectors.toList());
 
         String displayName = Boolean.TRUE.equals(room.getIsGroup())
@@ -287,7 +296,7 @@ public class ChatService {
                         .findFirst()
                         .orElse("알 수 없음");
 
-        ChatMessage last = chatMessageRepository.findFirstByChatRoom_IdOrderByCreatedAtDesc(room.getId()).orElse(null);
+        ChatMessage last = chatMessageRepository.findFirstByChatRoom_IdOrderByIdDesc(room.getId()).orElse(null);
 
         ChatRoomMember myMembership = members.stream()
                 .filter(m -> m.getUser().getId().equals(viewer.getId()))

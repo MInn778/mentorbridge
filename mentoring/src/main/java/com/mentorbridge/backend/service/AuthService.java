@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -84,33 +83,12 @@ public class AuthService {
         User user = refreshToken.getUser();
         refreshTokenRepository.delete(refreshToken); // rotate: old refresh token is single-use
 
-        return issueTokens(user);
-    }
-
-    @Transactional
-    public AuthResponse oauthLogin(String email, String name) {
-        User user = userRepository.findByEmail(email)
-                .orElseGet(() -> userRepository.save(User.builder()
-                        .email(email)
-                        .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 소셜 계정은 비밀번호 로그인을 쓰지 않음
-                        .name(uniqueName(name != null && !name.isBlank() ? name.trim() : email))
-                        .role(Role.MENTEE)
-                        .build()));
-
+        // 정지 전에 받아둔 refresh token으로 계속 재발급받지 못하게 한다
         if (Boolean.TRUE.equals(user.getIsSuspended())) {
             throw new RuntimeException("정지된 계정입니다. 관리자에게 문의해주세요.");
         }
 
         return issueTokens(user);
-    }
-
-    // 구글 로그인은 구글 계정 이름을 그대로 닉네임으로 쓰므로, 겹치면 "홍길동2", "홍길동3"처럼 번호를 붙인다
-    private String uniqueName(String base) {
-        String candidate = base;
-        for (int n = 2; userRepository.existsByName(candidate); n++) {
-            candidate = base + n;
-        }
-        return candidate;
     }
 
     @Transactional

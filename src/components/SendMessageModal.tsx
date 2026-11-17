@@ -36,7 +36,8 @@ export default function SendMessageModal({ receiverId, receiverName, onClose }: 
         alert('쪽지를 보냈습니다.');
         onClose();
       } else {
-        alert('쪽지 전송에 실패했습니다.');
+        const data = await res.json().catch(() => null);
+        alert(data?.message || '쪽지 전송에 실패했습니다.');
       }
     } catch (err) {
       console.error(err);

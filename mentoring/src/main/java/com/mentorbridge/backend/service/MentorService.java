@@ -31,7 +31,9 @@ public class MentorService {
 
     @Transactional(readOnly = true)
     public List<MentorProfileDto> getAllMentors() {
-        return mentorProfileRepository.findAll().stream().map(profile -> MentorProfileDto.builder()
+        return mentorProfileRepository.findAll().stream()
+                .filter(profile -> !Boolean.TRUE.equals(profile.getUser().getIsSuspended()))
+                .map(profile -> MentorProfileDto.builder()
                 .mentorId(profile.getId())
                 .userId(profile.getUser().getId())
                 .name(profile.getUser().getName())
@@ -202,6 +204,9 @@ public class MentorService {
 
         if (mentee.getId().equals(mentor.getUser().getId())) {
             throw new RuntimeException("Cannot request mentoring to yourself");
+        }
+        if (Boolean.TRUE.equals(mentor.getUser().getIsSuspended())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "정지된 사용자입니다.");
         }
 
         // 같은 멘토에게 대기 중이거나 진행 중인 멘토링이 있으면 중복 신청/중복 알림을 막는다
