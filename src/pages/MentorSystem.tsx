@@ -186,6 +186,9 @@ export default function MentorSystem() {
                   className="w-32 h-32 rounded-full border-4 border-white shadow-lg mb-4 object-cover"
                 />
                 <h3 className="text-xl font-bold text-slate-900">{mentor.name} 멘토</h3>
+                {mentor.name === user?.name && (
+                  <span className="mt-2 px-2 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-600">나</span>
+                )}
 
                 <div className="flex items-center gap-1 mt-4 text-orange-500">
                   <Star size={16} fill="currentColor" />
@@ -193,7 +196,15 @@ export default function MentorSystem() {
                   <span className="text-xs text-slate-400 font-normal">({mentor.reviewCount})</span>
                 </div>
 
-                {myMentorStatus[mentor.userId] === 'ACCEPTED' ? (
+                {/* 본인 카드에는 신청 버튼 대신 본인 표시 + 프로필 수정 (닉네임은 중복 가입이 막혀 있어 이름으로 본인 확인) */}
+                {mentor.name === user?.name ? (
+                  <button
+                    onClick={openModal}
+                    className="w-full mt-6 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"
+                  >
+                    <UserCog size={18} /> 내 프로필 (수정하기)
+                  </button>
+                ) : myMentorStatus[mentor.userId] === 'ACCEPTED' ? (
                   <button
                     onClick={() => openChat(mentor.userId)}
                     className="w-full mt-6 flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-green-700 transition-colors"
