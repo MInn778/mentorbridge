@@ -14,3 +14,6 @@ data/.embed_cache.json
 __pycache__/
 *.pyc
 .vscode/
+
+# .env를 압축한 파일도 올라가지 않게
+*.zip

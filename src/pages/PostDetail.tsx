@@ -353,9 +353,9 @@ export default function PostDetail() {
               </button>
               <button
                 onClick={() => handleDeletePost()}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} /> 삭제
               </button>
             </div>
           )}

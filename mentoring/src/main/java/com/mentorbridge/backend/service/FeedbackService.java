@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -171,16 +171,55 @@ public class FeedbackService {
 
         String extractedText = null;
         if (post.getFileUrl() != null && post.getFileName() != null) {
-            String storedName = post.getFileUrl().substring(post.getFileUrl().lastIndexOf('/') + 1);
-            try (var in = Files.newInputStream(fileStorageService.resolve(storedName))) {
-                extractedText = fileTextExtractionService.extractText(in, post.getFileName());
-            } catch (IOException e) {
-                log.warn("첨부파일을 다시 읽지 못해 제목/본문만으로 AI 피드백을 재생성합니다 ({})", post.getFileName());
+            byte[] data = fileStorageService.load(FileStorageService.storedNameOf(post.getFileUrl())).orElse(null);
+            if (data == null) {
+                log.warn("첨부파일을 찾지 못해 제목/본문만으로 AI 피드백을 재생성합니다 ({})", post.getFileName());
+            } else {
+                try (var in = new ByteArrayInputStream(data)) {
+                    extractedText = fileTextExtractionService.extractText(in, post.getFileName());
+                } catch (IOException e) {
+                    log.warn("첨부파일을 다시 읽지 못해 제목/본문만으로 AI 피드백을 재생성합니다 ({})", post.getFileName());
+                }
             }
         }
 
         post.setAiFeedback(generateAiFeedback(post.getTitle(), post.getContent(), extractedText));
         return mapToDto(feedbackPostRepository.save(post));
+    }
+
+    public record Attachment(String fileName, byte[] data) {}
+
+    /** 첨부파일은 게시글을 열람할 수 있는 사람(작성자, 멘토, 관리자)만 받을 수 있다. 파일이 없으면 null. */
+    @Transactional(readOnly = true)
+    public Attachment getAttachment(String storedName, String email) {
+        FeedbackPost post = feedbackPostRepository.findByFileUrl("/api/feedback/files/" + storedName)
+                .orElse(null);
+        if (post == null) return null;
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        boolean isAuthor = post.getAuthor().getId().equals(requester.getId());
+        boolean canReview = requester.getRole() == Role.MENTOR || requester.getRole() == Role.ADMIN;
+        if (!isAuthor && !canReview) {
+            throw new AccessDeniedException("본인이 작성한 피드백 요청의 첨부파일만 열람할 수 있습니다.");
+        }
+        return fileStorageService.load(storedName).map(d -> new Attachment(post.getFileName(), d)).orElse(null);
+    }
+
+    /** 작성자 본인 또는 관리자만 삭제. 멘토 코멘트와 첨부파일도 함께 지운다. */
+    @Transactional
+    public void deleteFeedbackPost(Integer id, String email) {
+        FeedbackPost post = feedbackPostRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Feedback Post not found"));
+        User requester = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!post.getAuthor().getId().equals(requester.getId()) && requester.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("본인이 작성한 피드백 요청만 삭제할 수 있습니다.");
+        }
+        mentorFeedbackRepository.deleteAll(mentorFeedbackRepository.findByFeedbackPostIdOrderByCreatedAtAsc(id));
+        if (post.getFileUrl() != null) {
+            fileStorageService.delete(FileStorageService.storedNameOf(post.getFileUrl()));
+        }
+        feedbackPostRepository.delete(post);
     }
 
     @Transactional

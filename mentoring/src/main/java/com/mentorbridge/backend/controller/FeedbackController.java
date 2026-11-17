@@ -3,17 +3,18 @@ package com.mentorbridge.backend.controller;
 import com.mentorbridge.backend.dto.FeedbackPostDto;
 import com.mentorbridge.backend.dto.MentorFeedbackDto;
 import com.mentorbridge.backend.service.FeedbackService;
-import com.mentorbridge.backend.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.net.MalformedURLException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +24,6 @@ import java.util.Map;
 public class FeedbackController {
 
     private final FeedbackService feedbackService;
-    private final FileStorageService fileStorageService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FeedbackPostDto> createFeedbackPost(
@@ -35,19 +35,24 @@ public class FeedbackController {
         return ResponseEntity.ok(feedbackService.createFeedbackPost(email, title, content, file));
     }
 
+    // 프론트가 Authorization 헤더를 붙여 fetch -> blob으로 받아 저장한다 (일반 링크로 열면 헤더가 없어 401)
     @GetMapping("/files/{storedName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String storedName) {
-        try {
-            Resource resource = new UrlResource(fileStorageService.resolve(storedName).toUri());
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
-            }
-            return ResponseEntity.ok()
-                    .header("Content-Disposition", "inline; filename=\"" + resource.getFilename() + "\"")
-                    .body(resource);
-        } catch (MalformedURLException e) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<byte[]> downloadFile(Authentication authentication, @PathVariable String storedName) {
+        FeedbackService.Attachment file = feedbackService.getAttachment(storedName, authentication.getName());
+        if (file == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "첨부파일을 찾을 수 없습니다.");
         }
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
+                .body(file.data());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteFeedbackPost(Authentication authentication, @PathVariable Integer id) {
+        feedbackService.deleteFeedbackPost(id, authentication.getName());
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping

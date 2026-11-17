@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Send, Loader2, RefreshCcw, ArrowRight, SkipForward, MessageCircle } from 'lucide-react';
+import { Sparkles, Send, Loader2, RefreshCcw, ArrowRight, ArrowLeft, MessageCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -32,17 +32,26 @@ export default function AICareer() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
 
-  const handleNext = (isSkip = false) => {
+  // 이전/다음으로 오갈 때 이미 적어둔 답변을 입력창에 다시 채워준다
+  const handleNext = () => {
     const field = questions[step].field;
-    const newAnswers = { ...answers, [field]: isSkip ? "답변하지 않음" : currentInput };
+    const newAnswers = { ...answers, [field]: currentInput };
     setAnswers(newAnswers);
-    setCurrentInput("");
 
     if (step < questions.length - 1) {
+      setCurrentInput(newAnswers[questions[step + 1].field] ?? "");
       setStep(step + 1);
     } else {
+      setCurrentInput("");
       generateRecommendation(newAnswers);
     }
+  };
+
+  const handlePrev = () => {
+    if (step === 0) return;
+    setAnswers({ ...answers, [questions[step].field]: currentInput });
+    setCurrentInput(answers[questions[step - 1].field] ?? "");
+    setStep(step - 1);
   };
 
   const generateRecommendation = async (finalAnswers: Record<string, string>) => {
@@ -132,13 +141,14 @@ export default function AICareer() {
 
             <div className="flex gap-4">
               <button
-                onClick={() => handleNext(true)}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
+                onClick={handlePrev}
+                disabled={step === 0}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <SkipForward size={20} /> 건너뛰기
+                <ArrowLeft size={20} /> 이전 질문
               </button>
               <button
-                onClick={() => handleNext(false)}
+                onClick={handleNext}
                 disabled={!currentInput.trim()}
                 className="flex-[2] flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >

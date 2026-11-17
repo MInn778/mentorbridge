@@ -101,11 +101,12 @@ export default function Community() {
     return '기타';
   };
 
-  // 관리자는 목록에서 바로 게시글을 삭제(is_deleted 처리)할 수 있다
-  const handleAdminDelete = async (e: React.MouseEvent, post: Post) => {
+  // 작성자 본인 또는 관리자는 목록에서 바로 게시글을 삭제(is_deleted 처리)할 수 있다 (닉네임은 중복 가입이 막혀 있어 이름으로 본인 확인)
+  const handleDelete = async (e: React.MouseEvent, post: Post) => {
     e.stopPropagation();
-    if (!confirm(`관리자 권한으로 "${post.title}" 게시글을 삭제하시겠습니까?`)) return;
-    const res = await fetch(`/api/admin/posts/${post.boardId}`, {
+    const mine = post.authorName === user?.name;
+    if (!confirm(mine ? `"${post.title}" 게시글을 삭제하시겠습니까?` : `관리자 권한으로 "${post.title}" 게시글을 삭제하시겠습니까?`)) return;
+    const res = await fetch(mine ? `/api/posts/${post.boardId}` : `/api/admin/posts/${post.boardId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -308,11 +309,11 @@ export default function Community() {
                   <span className="text-xs text-slate-400">
                     {new Date(post.createdAt).toLocaleDateString()}
                   </span>
-                  {user?.role === 'ADMIN' && (
+                  {(user?.role === 'ADMIN' || post.authorName === user?.name) && (
                     <button
-                      onClick={(e) => handleAdminDelete(e, post)}
-                      title="관리자 삭제"
-                      aria-label="관리자 삭제"
+                      onClick={(e) => handleDelete(e, post)}
+                      title={post.authorName === user?.name ? '삭제' : '관리자 삭제'}
+                      aria-label={post.authorName === user?.name ? '삭제' : '관리자 삭제'}
                       className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={14} />

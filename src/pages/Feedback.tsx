@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { Upload, FileText, MessageSquare, Sparkles, Loader2, CheckCircle2, Send, ArrowLeft, Plus, Lock } from 'lucide-react';
+import { Upload, FileText, MessageSquare, Sparkles, Loader2, CheckCircle2, Send, ArrowLeft, Plus, Lock, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -239,6 +239,34 @@ export default function Feedback() {
     }
   };
 
+  // 첨부파일은 인증이 필요해서 일반 링크 대신 토큰을 붙여 받아온 뒤 원래 파일명으로 저장한다
+  const handleDownload = async () => {
+    if (!selectedPost?.fileUrl) return;
+    const res = await fetch(selectedPost.fileUrl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      alert(data?.message || (res.status === 403 ? '열람 권한이 없습니다.' : '첨부파일을 열지 못했습니다.'));
+      return;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = selectedPost.fileName || 'attachment';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeletePost = async () => {
+    if (!selectedPost || !confirm('이 피드백 요청을 삭제하시겠습니까? 멘토 코멘트와 첨부파일도 함께 삭제됩니다.')) return;
+    const res = await fetch(`/api/feedback/${selectedPost.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      setSelectedPostId(null);
+      fetchPosts();
+    } else {
+      alert('삭제에 실패했습니다.');
+    }
+  };
+
   if (selectedPost) {
     return (
       <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-10">
@@ -255,16 +283,22 @@ export default function Feedback() {
               첨삭 요청
             </span>
             <span className="text-sm text-slate-400">{new Date(selectedPost.createdAt).toLocaleString()}</span>
+            {(selectedPost.authorName === user?.name || user?.role === 'ADMIN') && (
+              <button
+                onClick={handleDeletePost}
+                className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+              >
+                <Trash2 size={16} /> 삭제
+              </button>
+            )}
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">{selectedPost.title}</h1>
           <p className="text-slate-600 mb-6">{selectedPost.content}</p>
           
           {selectedPost.fileUrl && (
-            <a
-              href={selectedPost.fileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            <button
+              onClick={handleDownload}
+              className="w-full text-left flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors"
             >
               <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
                 <FileText size={24} />
@@ -273,7 +307,7 @@ export default function Feedback() {
                 <p className="font-bold text-slate-900 text-sm">첨부파일</p>
                 <p className="text-xs text-slate-500">{selectedPost.fileName || '파일 열기'}</p>
               </div>
-            </a>
+            </button>
           )}
         </header>
 
